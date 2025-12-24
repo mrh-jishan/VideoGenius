@@ -1,6 +1,6 @@
 'use client';
 
-import { FileJson } from 'lucide-react';
+import { FileJson, ArrowLeft } from 'lucide-react';
 import type { VideoProject, Scene } from '@/lib/types';
 import { Accordion } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
@@ -11,14 +11,20 @@ interface EditorStepProps {
   project: VideoProject;
   onUpdateScene: (scene: Scene) => void;
   onExport: () => void;
+  onBackToProjects: () => void;
 }
 
-export default function EditorStep({ project, onUpdateScene, onExport }: EditorStepProps) {
+export default function EditorStep({ project, onUpdateScene, onExport, onBackToProjects }: EditorStepProps) {
   return (
     <div className="space-y-8">
+      <Button variant="outline" onClick={onBackToProjects}>
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Back to Projects
+      </Button>
+
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline">Project Overview</CardTitle>
+          <CardTitle className="font-headline">Editing: {project.name}</CardTitle>
           <CardDescription>
             Your prompt has been transformed into {project.scenes.length} scenes. Review and edit each scene below.
           </CardDescription>
@@ -32,7 +38,7 @@ export default function EditorStep({ project, onUpdateScene, onExport }: EditorS
       
       <div>
         <h2 className="text-2xl font-bold mb-4 font-headline">Scene Editor</h2>
-        <Accordion type="single" collapsible className="w-full space-y-4">
+        <Accordion type="single" collapsible className="w-full space-y-4" defaultValue={`item-${project.scenes[0]?.id}`}>
           {project.scenes.map((scene, index) => (
             <SceneCard
               key={scene.id}

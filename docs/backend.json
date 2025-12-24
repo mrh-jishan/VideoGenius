@@ -19,6 +19,10 @@
           "type": "string",
           "description": "User's display name."
         },
+        "photoURL": {
+          "type": "string",
+          "description": "URL of the user's profile picture."
+        },
         "geminiApiKey": {
           "type": "string",
           "description": "User's Gemini API key."
@@ -27,8 +31,7 @@
       "required": [
         "id",
         "email",
-        "displayName",
-        "geminiApiKey"
+        "displayName"
       ]
     },
     "Project": {
@@ -53,6 +56,12 @@
           "type": "string",
           "description": "The initial text prompt for video generation."
         },
+        "scenes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/backend/entities/Scene"
+          }
+        },
         "creationDate": {
           "type": "string",
           "description": "The date and time when the project was created.",
@@ -69,6 +78,7 @@
         "userId",
         "name",
         "prompt",
+        "scenes",
         "creationDate",
         "lastModified"
       ]
@@ -82,10 +92,6 @@
         "id": {
           "type": "string",
           "description": "Unique identifier for the Scene entity."
-        },
-        "projectId": {
-          "type": "string",
-          "description": "Reference to Project. (Relationship: Project 1:N Scene)"
         },
         "title": {
           "type": "string",
@@ -103,7 +109,7 @@
           "type": "number",
           "description": "Duration of the scene in seconds."
         },
-        "musicMoodKeywords": {
+        "musicMood": {
           "type": "string",
           "description": "Keywords for background music mood."
         },
@@ -111,53 +117,28 @@
           "type": "string",
           "description": "Keywords for scene-specific sound effects."
         },
-        "imageId": {
-          "type": "string",
-          "description": "Reference to ImageAsset. (Relationship: ImageAsset 1:1 Scene)"
+        "asset": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "description": { "type": "string" },
+            "imageUrl": { "type": "string" },
+            "imageHint": { "type": "string" }
+          }
         }
       },
       "required": [
         "id",
-        "projectId",
         "title",
         "narration",
         "visualPrompt",
-        "duration",
-        "musicMoodKeywords",
-        "sfxKeywords",
-        "imageId"
-      ]
-    },
-    "ImageAsset": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ImageAsset",
-      "type": "object",
-      "description": "Represents an image asset used in a scene.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the ImageAsset entity."
-        },
-        "url": {
-          "type": "string",
-          "description": "URL of the image asset."
-        },
-        "source": {
-          "type": "string",
-          "description": "Source of the image asset (e.g., 'Pixabay', 'AI Generated')."
-        }
-      },
-      "required": [
-        "id",
-        "url",
-        "source"
+        "duration"
       ]
     }
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "google.com"
     ]
   },
   "firestore": {
@@ -197,52 +178,7 @@
             }
           ]
         }
-      },
-      {
-        "path": "/users/{userId}/projects/{projectId}/scenes/{sceneId}",
-        "definition": {
-          "entityName": "Scene",
-          "schema": {
-            "$ref": "#/backend/entities/Scene"
-          },
-          "description": "Stores scenes for a specific video generation project. Includes denormalized 'userId' and 'projectId' for authorization independence.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "projectId",
-              "description": "The unique identifier for the project."
-            },
-            {
-              "name": "sceneId",
-              "description": "The unique identifier for the scene."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/imageAssets/{imageAssetId}",
-        "definition": {
-          "entityName": "ImageAsset",
-          "schema": {
-            "$ref": "#/backend/entities/ImageAsset"
-          },
-          "description": "Stores image assets for a specific user. Includes denormalized 'userId' for authorization independence.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "imageAssetId",
-              "description": "The unique identifier for the image asset."
-            }
-          ]
-        }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to ensure security, scalability, and ease of debugging, adhering to the principles of Authorization Independence, Clarity of Intent, DBAC, and QAPs. It uses Structural Segregation and Access Modeling to achieve these goals.\n\n- **Authorization Independence:** The structure avoids hierarchical authorization dependencies by denormalizing user ownership. Projects, scenes, and image assets are located under the user's document or further nested, eliminating the need for `get()` calls in security rules to verify ownership.\n\n- **Clarity of Intent:** The path structure clearly expresses the relationships between entities. The path `/users/{userId}/projects/{projectId}` explicitly shows that a project belongs to a user.\n\n- **DBAC:** User roles are not stored in custom claims but are derived directly from the `request.auth.uid`, simplifying the security rules.\n\n- **QAPs:** The segregation of data based on user ownership allows for secure list operations. Rules can easily check if the requesting user ID matches the owner ID in the path.\n\n**Denormalization Strategy:** The `projects` and other subcollections are located directly under the `users` collection, denormalizing the user-project relationship into the document path. This eliminates the need to fetch parent document properties to determine access, enabling atomic operations.\n\n**Structural Segregation:** Each collection serves a specific purpose and has a homogeneous security posture. User data is separated from project data, and access is controlled based on the user's authentication status and ownership.\n\n**Access Modeling:**\n\n- **Private Data:** User-specific data (projects, scenes, image assets) is stored under the `/users/{userId}` path, indicating private ownership.\n\n- **Path-Based Ownership:** The paths `/users/{userId}/projects/{projectId}`, `/users/{userId}/projects/{projectId}/scenes/{sceneId}`, and `/users/{userId}/imageAssets/{imageAssetId}` clearly define ownership and enable simple security rules.\n\nThis design facilitates simple, robust, and easily debuggable security rules by ensuring authorization independence and adhering to the core design principles."
+    ]
   }
 }

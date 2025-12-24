@@ -81,37 +81,5 @@ service cloud.firestore {
       allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
       allow delete: if isExistingOwner(userId);
     }
-
-    /**
-     * @description Rules for scenes within a project. Access is inherited from the user owner.
-     * @path /users/{userId}/projects/{projectId}/scenes/{sceneId}
-     * @allow The owner (uid: 'user123') creating a new scene within their own project. (create)
-     * @deny A different user (uid: 'user456') trying to delete a scene. (delete)
-     * @deny The owner creating a scene where the document's `projectId` does not match the path. (create)
-     * @principle Cascades ownership from the top-level user path and validates the project relationship.
-     */
-    match /users/{userId}/projects/{projectId}/scenes/{sceneId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.projectId == projectId;
-      allow update: if isExistingOwner(userId) && request.resource.data.projectId == resource.data.projectId;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Rules for a user's private image assets.
-     * @path /users/{userId}/imageAssets/{imageAssetId}
-     * @allow The owner (uid: 'user123') reading one of their image assets. (get)
-     * @allow The owner (uid: 'user123') listing their own image assets. (list)
-     * @deny A different user (uid: 'user456') trying to create an image asset under another user's path. (create)
-     * @principle Enforces strict ownership for a user's private collection of assets.
-     */
-    match /users/{userId}/imageAssets/{imageAssetId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
   }
 }

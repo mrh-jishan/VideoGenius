@@ -7,11 +7,16 @@ export type Scene = GenerateInitialScenesOutput[number] & {
   asset?: ImagePlaceholder;
 };
 
-// The entire video project
+// The entire video project, as stored in Firestore
 export type VideoProject = {
+  id: string;
+  userId: string;
+  name: string;
   prompt: string;
   scenes: Scene[];
+  creationDate: string; // ISO string
+  lastModified: string; // ISO string
 };
 
 // Represents the different stages of the video creation workflow
-export type WorkflowStep = 'prompt' | 'editing' | 'export';
+export type WorkflowStep = 'prompt' | 'editing' | 'export' | 'dashboard';
