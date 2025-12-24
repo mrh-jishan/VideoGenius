@@ -8,7 +8,6 @@ import { doc } from 'firebase/firestore';
 import type { VideoProject, Scene } from '@/lib/types';
 import { generateScenesAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
-import Header from '@/components/layout/Header';
 import PromptStep from '@/components/workflow/PromptStep';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Loader2 } from 'lucide-react';
@@ -22,7 +21,7 @@ export default function NewProjectPage() {
   const { toast } = useToast();
 
   if (isUserLoading) {
-     return <div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
+     return <div className="flex flex-1 items-center justify-center py-12"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
   }
 
   if (!user) {
@@ -80,13 +79,8 @@ export default function NewProjectPage() {
   };
   
   return (
-    <div className="flex flex-col h-screen">
-      <Header />
-      <main className="flex-1 overflow-auto bg-muted/20">
-        <div className="p-4 sm:p-6 lg:p-8">
-            <PromptStep onPromptSubmit={handleGenerateScenes} isLoading={isLoading} />
-        </div>
-      </main>
+    <div className="space-y-6">
+      <PromptStep onPromptSubmit={handleGenerateScenes} isLoading={isLoading} />
     </div>
   );
 }

@@ -8,7 +8,6 @@ import type { VideoProject, WorkflowStep, Scene } from '@/lib/types';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import EditorStep from '@/components/workflow/EditorStep';
 import ExportStep from '@/components/workflow/ExportStep';
-import Header from '@/components/layout/Header';
 import { Loader2 } from 'lucide-react';
 
 export default function ProjectPage() {
@@ -74,13 +73,8 @@ export default function ProjectPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen">
-      <Header />
-      <main className="flex-1 overflow-auto bg-muted/20">
-        <div className="p-4 sm:p-6 lg:p-8 h-full">
-          {renderContent()}
-        </div>
-      </main>
+    <div className="min-h-[70vh]">
+      {renderContent()}
     </div>
   );
 }

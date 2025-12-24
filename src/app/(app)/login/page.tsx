@@ -21,14 +21,14 @@ export default function LoginPage() {
 
   if (isUserLoading || user) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center">
+      <div className="flex flex-1 items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+    <div className="flex min-h-[60vh] items-center justify-center">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <Clapperboard className="mx-auto h-12 w-12 text-primary" />
