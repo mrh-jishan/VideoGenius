@@ -13,6 +13,8 @@ import {z} from 'genkit';
 
 const GenerateInitialScenesInputSchema = z.object({
   prompt: z.string().describe('The main text prompt for video generation.'),
+  aspectRatio: z.enum(['horizontal', 'vertical']).describe('The aspect ratio of the video.'),
+  duration: z.number().describe('The target duration of the video in seconds.'),
 });
 export type GenerateInitialScenesInput = z.infer<typeof GenerateInitialScenesInputSchema>;
 
@@ -36,17 +38,20 @@ const initialScenesPrompt = ai.definePrompt({
   name: 'initialScenesPrompt',
   input: {schema: GenerateInitialScenesInputSchema},
   output: {schema: GenerateInitialScenesOutputSchema},
-  prompt: `You are an AI video scene planner. Given the following prompt, generate a set of video scenes.
+  prompt: `You are an AI video scene planner. Given the following prompt and parameters, generate a set of video scenes.
+
+  The final video should be approximately {{duration}} seconds long and have a {{aspectRatio}} aspect ratio.
+  Distribute the total duration across the scenes you generate.
 
   Prompt: {{{prompt}}}
 
   Each scene should include:
   - A title for context
   - A 2-3 sentence narration snippet
-  - A visual prompt for image/video generation
-  - An estimated duration (in seconds) to match the overall target video length (if known, otherwise, estimate reasonable duration).
-  - Music mood keywords (e.g., \"inspiring, cinematic, light\")
-  - SFX keywords (for scene-specific sound effects, e.g., \"wind howling, door opening\")
+  - A visual prompt for image/video generation, tailored for a {{aspectRatio}} aspect ratio.
+  - An estimated duration (in seconds) that contributes to the total video length of {{duration}} seconds.
+  - Music mood keywords (e.g., "inspiring, cinematic, light")
+  - SFX keywords (for scene-specific sound effects, e.g., "wind howling, door opening")
 
   Return the scenes as a JSON array.
   `,

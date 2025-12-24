@@ -1,12 +1,13 @@
 'use client';
 
-import { Wand2, Loader2 } from 'lucide-react';
+import { Wand2, Loader2, RectangleHorizontal, RectangleVertical } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -15,16 +16,29 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Input } from '@/components/ui/input';
 
 interface PromptStepProps {
-  onPromptSubmit: (prompt: string) => void;
+  onPromptSubmit: (
+    prompt: string,
+    aspectRatio: 'horizontal' | 'vertical',
+    duration: number
+  ) => void;
   isLoading: boolean;
 }
 
 const formSchema = z.object({
-  prompt: z.string().min(10, {
-    message: 'Prompt must be at least 10 characters long.',
-  }),
+  prompt: z
+    .string()
+    .min(20, {
+      message: 'Prompt must be at least 20 characters long.',
+    })
+    .max(500, {
+      message: 'Prompt cannot be more than 500 characters long.',
+    }),
+  aspectRatio: z.enum(['horizontal', 'vertical']),
+  duration: z.coerce.number().min(5, 'Duration must be at least 5 seconds.').max(300, 'Duration cannot exceed 300 seconds (5 minutes).'),
 });
 
 export default function PromptStep({ onPromptSubmit, isLoading }: PromptStepProps) {
@@ -32,11 +46,13 @@ export default function PromptStep({ onPromptSubmit, isLoading }: PromptStepProp
     resolver: zodResolver(formSchema),
     defaultValues: {
       prompt: '',
+      aspectRatio: 'horizontal',
+      duration: 60,
     },
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    onPromptSubmit(values.prompt);
+    onPromptSubmit(values.prompt, values.aspectRatio, values.duration);
   }
 
   return (
@@ -53,7 +69,7 @@ export default function PromptStep({ onPromptSubmit, isLoading }: PromptStepProp
       <Card className="shadow-2xl shadow-primary/10">
         <CardContent className="p-8">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               <FormField
                 control={form.control}
                 name="prompt"
@@ -67,10 +83,82 @@ export default function PromptStep({ onPromptSubmit, isLoading }: PromptStepProp
                         {...field}
                       />
                     </FormControl>
+                    <FormDescription>
+                      Describe the video you want to create in detail.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              <div className="grid md:grid-cols-2 gap-8">
+                <FormField
+                  control={form.control}
+                  name="aspectRatio"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel className="text-lg font-semibold">Aspect Ratio</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          className="flex gap-4"
+                        >
+                          <FormItem className="flex-1">
+                            <FormControl>
+                              <RadioGroupItem value="horizontal" id="horizontal" className="sr-only" />
+                            </FormControl>
+                            <FormLabel
+                              htmlFor="horizontal"
+                              className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+                            >
+                              <RectangleHorizontal className="mb-3 h-6 w-6" />
+                              Horizontal (16:9)
+                            </FormLabel>
+                          </FormItem>
+                          <FormItem className="flex-1">
+                            <FormControl>
+                              <RadioGroupItem
+                                value="vertical"
+                                id="vertical"
+                                className="sr-only"
+                              />
+                            </FormControl>
+                            <FormLabel
+                              htmlFor="vertical"
+                              className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+                            >
+                              <RectangleVertical className="mb-3 h-6 w-6" />
+                              Vertical (9:16)
+                            </FormLabel>
+                          </FormItem>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="duration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-lg font-semibold">Target Duration</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                            <Input type="number" className="pr-16" {...field} />
+                            <span className="absolute inset-y-0 right-4 flex items-center text-muted-foreground text-sm">seconds</span>
+                        </div>
+                      </FormControl>
+                      <FormDescription>
+                        How long should the final video be?
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <Button type="submit" disabled={isLoading} className="w-full" size="lg">
                 {isLoading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />

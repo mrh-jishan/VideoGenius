@@ -2,6 +2,7 @@
 
 import {
   generateInitialScenes,
+  GenerateInitialScenesInput,
   GenerateInitialScenesOutput,
 } from '@/ai/flows/generate-initial-scenes';
 import {
@@ -12,17 +13,17 @@ import {
 
 /**
  * Server action to generate initial scenes from a text prompt.
- * @param prompt The user's text prompt.
+ * @param input The user's prompt and configuration.
  * @returns A promise that resolves to the generated scenes or throws an error.
  */
 export async function generateScenesAction(
-  prompt: string
+  input: GenerateInitialScenesInput
 ): Promise<GenerateInitialScenesOutput> {
-  if (!prompt || prompt.trim().length < 10) {
+  if (!input.prompt || input.prompt.trim().length < 10) {
     throw new Error('Prompt is too short. Please provide a more detailed description.');
   }
   try {
-    const scenes = await generateInitialScenes({ prompt });
+    const scenes = await generateInitialScenes(input);
     return scenes;
   } catch (error) {
     console.error('Error in generateInitialScenes flow:', error);

@@ -59,11 +59,15 @@ export default function DashboardPage() {
   }, [step, activeProject]);
 
 
-  const handleGenerateScenes = async (prompt: string) => {
+  const handleGenerateScenes = async (
+    prompt: string,
+    aspectRatio: 'horizontal' | 'vertical',
+    duration: number
+  ) => {
     if (!user || !firestore) return;
     setIsLoading(true);
     try {
-      const scenes = await generateScenesAction(prompt);
+      const scenes = await generateScenesAction({ prompt, aspectRatio, duration });
       if (scenes && scenes.length > 0) {
         const scenesWithIds: Scene[] = scenes.map((scene) => ({
           ...scene,
