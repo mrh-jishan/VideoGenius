@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,18 +21,20 @@ const profileFormSchema = z.object({
   geminiApiKey: z.string().optional(),
   ttsProvider: z.enum(['gTTS', 'AmazonPolly']).default('gTTS'),
   pollyVoice: z.string().optional(),
-  pollyEngine: z.enum(['standard', 'neural']).default('standard'),
+  pollyEngine: z.enum(['standard', 'neural', 'generative', 'long-form']).default('standard'),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 const pollyVoices = [
-    { value: 'Joanna', label: 'Joanna (Female, American English)' },
-    { value: 'Matthew', label: 'Matthew (Male, American English)' },
-    { value: 'Ivy', label: 'Ivy (Female, American English, Child)' },
-    { value: 'Amy', label: 'Amy (Female, British English)' },
-    { value: 'Brian', label: 'Brian (Male, British English)' },
-    { value: 'Emma', label: 'Emma (Female, British English, Neural)' },
+    { value: 'Joanna', label: 'Joanna (Female, American English)', engines: ['standard', 'neural', 'long-form'] },
+    { value: 'Matthew', label: 'Matthew (Male, American English)', engines: ['standard', 'neural', 'long-form'] },
+    { value: 'Ivy', label: 'Ivy (Female, American English, Child)', engines: ['standard', 'neural'] },
+    { value: 'Amy', label: 'Amy (Female, British English)', engines: ['standard', 'neural', 'long-form'] },
+    { value: 'Brian', label: 'Brian (Male, British English)', engines: ['standard', 'neural', 'long-form'] },
+    { value: 'Emma', label: 'Emma (Female, British English)', engines: ['standard', 'neural', 'long-form'] },
+    { value: 'Ruth', label: 'Ruth (Female, American English)', engines: ['generative', 'long-form'] },
+    { value: 'Stephen', label: 'Stephen (Male, American English)', engines: ['generative', 'long-form'] },
 ];
 
 export default function ProfilePage() {
@@ -56,6 +58,13 @@ export default function ProfilePage() {
       pollyEngine: 'standard'
     },
   });
+  
+  const watchedTtsProvider = form.watch('ttsProvider');
+  const watchedPollyEngine = form.watch('pollyEngine');
+  
+  const availableVoices = useMemo(() => {
+    return pollyVoices.filter(voice => voice.engines.includes(watchedPollyEngine));
+  }, [watchedPollyEngine]);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -74,7 +83,14 @@ export default function ProfilePage() {
     }
   }, [userProfile, form]);
   
-  const watchedTtsProvider = form.watch('ttsProvider');
+  useEffect(() => {
+      const currentVoice = form.getValues('pollyVoice');
+      const isCurrentVoiceAvailable = availableVoices.some(v => v.value === currentVoice);
+      if (!isCurrentVoiceAvailable && availableVoices.length > 0) {
+        form.setValue('pollyVoice', availableVoices[0].value);
+      }
+  }, [watchedPollyEngine, availableVoices, form]);
+
 
   const onSubmit = async (data: ProfileFormValues) => {
     if (!userDocRef) return;
@@ -171,29 +187,7 @@ export default function ProfilePage() {
 
                             {watchedTtsProvider === 'AmazonPolly' && (
                                 <div className="space-y-6 rounded-md border p-4">
-                                     <FormField
-                                        control={form.control}
-                                        name="pollyVoice"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                            <FormLabel>Amazon Polly Voice</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a voice" />
-                                                </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {pollyVoices.map(voice => (
-                                                        <SelectItem key={voice.value} value={voice.value}>{voice.label}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                     <FormField
+                                    <FormField
                                         control={form.control}
                                         name="pollyEngine"
                                         render={({ field }) => (
@@ -208,9 +202,33 @@ export default function ProfilePage() {
                                                 <SelectContent>
                                                     <SelectItem value="standard">Standard</SelectItem>
                                                     <SelectItem value="neural">Neural</SelectItem>
+                                                    <SelectItem value="generative">Generative</SelectItem>
+                                                    <SelectItem value="long-form">Long-Form</SelectItem>
                                                 </SelectContent>
                                             </Select>
-                                            <FormDescription>Neural engines provide higher quality voices.</FormDescription>
+                                            <FormDescription>Neural and Generative engines provide higher quality voices.</FormDescription>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={form.control}
+                                        name="pollyVoice"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <FormLabel>Amazon Polly Voice</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a voice" />
+                                                </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {availableVoices.map(voice => (
+                                                        <SelectItem key={voice.value} value={voice.value}>{voice.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                             <FormMessage />
                                             </FormItem>
                                         )}
