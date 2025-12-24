@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 interface PromptStepProps {
   onPromptSubmit: (
@@ -101,7 +102,7 @@ export default function PromptStep({ onPromptSubmit, isLoading }: PromptStepProp
                       <FormControl>
                         <RadioGroup
                           onValueChange={field.onChange}
-                          defaultValue={field.value}
+                          value={field.value}
                           className="flex gap-4"
                         >
                           <FormItem className="flex-1">
@@ -110,7 +111,10 @@ export default function PromptStep({ onPromptSubmit, isLoading }: PromptStepProp
                             </FormControl>
                             <FormLabel
                               htmlFor="horizontal"
-                              className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+                              className={cn(
+                                "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer",
+                                field.value === 'horizontal' && "border-primary"
+                              )}
                             >
                               <RectangleHorizontal className="mb-3 h-6 w-6" />
                               Horizontal (16:9)
@@ -126,7 +130,10 @@ export default function PromptStep({ onPromptSubmit, isLoading }: PromptStepProp
                             </FormControl>
                             <FormLabel
                               htmlFor="vertical"
-                              className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+                              className={cn(
+                                "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer",
+                                field.value === 'vertical' && "border-primary"
+                               )}
                             >
                               <RectangleVertical className="mb-3 h-6 w-6" />
                               Vertical (9:16)
