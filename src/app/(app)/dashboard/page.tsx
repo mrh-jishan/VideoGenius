@@ -51,7 +51,9 @@ export default function DashboardPage() {
   }, [user, isUserLoading, router]);
   
   useEffect(() => {
-    if (step !== 'dashboard' && !activeProject) {
+    // This effect should navigate back to dashboard if we are in a project-specific step without a project.
+    // 'prompt' step is for creating a new project, so it doesn't need an activeProject.
+    if ((step === 'editing' || step === 'export') && !activeProject) {
         setStep('dashboard');
     }
   }, [step, activeProject]);
