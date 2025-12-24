@@ -23,8 +23,8 @@ export default function DashboardPage() {
     <div className="flex flex-col h-screen">
       <Header />
       <main className="flex-1 overflow-auto bg-muted/20">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-           <div className="text-center py-24 border-2 border-dashed rounded-lg bg-card">
+        <div className="p-4 sm:p-6 lg:p-8 h-full flex items-center justify-center">
+           <div className="text-center py-24 border-2 border-dashed rounded-lg bg-card max-w-lg w-full">
               <h3 className="text-2xl font-semibold text-foreground">Welcome to VideoGenius</h3>
               <p className="text-muted-foreground mt-3 mb-6 max-w-sm mx-auto">Select a project from the sidebar to start editing, or create a new one.</p>
               <Button onClick={() => router.push('/new-project')} size="lg">

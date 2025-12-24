@@ -39,23 +39,28 @@ export default function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" side="left" variant='sidebar' className="border-r">
-      <SidebarHeader className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold group-data-[collapsible=icon]:hidden">Projects</h2>
+    <Sidebar collapsible="icon" side="left" variant='sidebar' className="border-r bg-sidebar text-sidebar-foreground">
+      <SidebarHeader className="flex items-center justify-between p-4">
+          <Link href="/" className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold group-data-[collapsible=icon]:hidden">VideoGenius</h2>
+          </Link>
           <SidebarTrigger className="group-data-[collapsible=icon]:hidden" />
       </SidebarHeader>
 
-      <SidebarContent className="p-2 flex-1">
+      <SidebarContent className="p-4 flex-1">
         <SidebarMenu>
           <SidebarMenuItem>
-             <Button variant="default" className="w-full" onClick={() => router.push('/new-project')}>
+             <Button variant="default" className="w-full bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90" onClick={() => router.push('/new-project')}>
                 <PlusCircle />
                 <span className="group-data-[collapsible=icon]:hidden ml-2">New Project</span>
              </Button>
           </SidebarMenuItem>
         </SidebarMenu>
-
-        <div className="flex-1 overflow-y-auto mt-4">
+        
+        <p className="text-xs text-sidebar-foreground/70 mt-6 mb-2 px-2 group-data-[collapsible=icon]:hidden">
+          My Projects
+        </p>
+        <div className="flex-1 overflow-y-auto">
             <SidebarMenu>
                 {isUserLoading || isLoadingProjects ? (
                     Array.from({length: 3}).map((_, i) => <SidebarMenuSkeleton key={i} showIcon />)
@@ -71,6 +76,7 @@ export default function AppSidebar() {
                                 onClick={() => router.push(`/projects/${p.id}`)}
                                 isActive={pathname.startsWith(`/projects/${p.id}`)}
                                 tooltip={p.name}
+                                className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
                             >
                                 <FileVideo />
                                 <span>{p.name}</span>
@@ -82,18 +88,18 @@ export default function AppSidebar() {
         </div>
       </SidebarContent>
 
-      <SidebarFooter className="p-2">
+      <SidebarFooter className="p-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => router.push('/dashboard')} isActive={pathname === '/dashboard'} tooltip="Dashboard">
+            <SidebarMenuButton onClick={() => router.push('/dashboard')} isActive={pathname === '/dashboard'} tooltip="Dashboard"  className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground">
               <Home />
-              <span>Dashboard</span>
+              <span className="group-data-[collapsible=icon]:hidden">Dashboard</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => router.push('/profile')} isActive={pathname === '/profile'} tooltip="Profile & Settings">
+            <SidebarMenuButton onClick={() => router.push('/profile')} isActive={pathname === '/profile'} tooltip="Profile & Settings" className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground">
               <Settings />
-              <span>Settings</span>
+              <span className="group-data-[collapsible=icon]:hidden">Settings</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

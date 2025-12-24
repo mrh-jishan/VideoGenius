@@ -126,8 +126,8 @@ export default function ProfilePage() {
     <div className="flex flex-col h-screen">
       <Header />
       <main className="flex-1 overflow-auto bg-muted/20">
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-2xl mx-auto">
+        <div className="p-4 sm:p-6 lg:p-8">
+          <div className="max-w-4xl mx-auto">
             <Card>
               <CardHeader>
                 <CardTitle className="text-2xl font-headline">User Profile</CardTitle>
