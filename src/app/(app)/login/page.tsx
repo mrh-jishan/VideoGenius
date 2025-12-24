@@ -15,7 +15,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      router.push('/');
+      router.push('/dashboard');
     }
   }, [user, isUserLoading, router]);
 
