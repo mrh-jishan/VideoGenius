@@ -41,8 +41,8 @@ export default function AppSidebar() {
   return (
     <Sidebar collapsible="icon" side="left" variant='sidebar' className="border-r bg-sidebar text-sidebar-foreground">
       <SidebarHeader className="flex items-center justify-between p-4">
-          <Link href="/" className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold group-data-[collapsible=icon]:hidden">VideoGenius</h2>
+          <Link href="/" className="flex items-center gap-2 font-semibold text-lg group-data-[collapsible=icon]:-ml-1 group-data-[collapsible=icon]:pointer-events-none">
+            <span className="group-data-[collapsible=icon]:hidden">VideoGenius</span>
           </Link>
           <SidebarTrigger className="group-data-[collapsible=icon]:hidden" />
       </SidebarHeader>
