@@ -48,7 +48,7 @@ export default function ExportStep({ project, onStartOver }: ExportStepProps) {
               )}
             </Button>
             <ScrollArea className="h-96 rounded-md border bg-muted/50">
-              <pre className="p-4 text-sm font-code">
+              <pre className="p-4 text-sm font-mono">
                 <code>{jsonOutput}</code>
               </pre>
             </ScrollArea>

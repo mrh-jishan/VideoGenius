@@ -8,9 +8,11 @@ import {
   onAuthStateChanged,
   type User
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, serverTimestamp } from 'firebase/firestore';
 import { getFirebase } from './provider';
 import { initializeFirebase } from '.';
+import { setDocumentNonBlocking } from './non-blocking-updates';
+
 
 const { auth, firestore } = initializeFirebase();
 const provider = new GoogleAuthProvider();
@@ -23,14 +25,16 @@ export const signInWithGoogle = async () => {
     // Create user document in Firestore on first sign-in
     if (user) {
       const userRef = doc(firestore, 'users', user.uid);
-      await setDoc(userRef, {
+      const userData = {
         id: user.uid,
         displayName: user.displayName,
         email: user.email,
         photoURL: user.photoURL,
-        createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
-      }, { merge: true });
+      };
+      
+      // Use non-blocking write and update creation timestamp only once.
+      setDocumentNonBlocking(userRef, { ...userData, createdAt: serverTimestamp() }, { merge: true });
     }
   } catch (error) {
     console.error("Error signing in with Google: ", error);

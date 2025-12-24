@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, serverTimestamp, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, deleteDoc, setDoc } from 'firebase/firestore';
 import type { VideoProject, WorkflowStep, Scene } from '@/lib/types';
 import { generateScenesAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +15,7 @@ import ExportStep from '@/components/workflow/ExportStep';
 import { Button } from '@/components/ui/button';
 import { Loader2, PlusCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
@@ -22,7 +23,7 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [activeProject, setActiveProject] = useState<VideoProject | null>(null);
-  const [step, setStep] = useState<WorkflowStep>('prompt');
+  const [step, setStep] = useState<WorkflowStep>('dashboard');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -37,6 +38,13 @@ export default function DashboardPage() {
       router.push('/login');
     }
   }, [user, isUserLoading, router]);
+  
+  useEffect(() => {
+    if (step !== 'dashboard' && !activeProject) {
+        setStep('dashboard');
+    }
+  }, [step, activeProject]);
+
 
   const handleGenerateScenes = async (prompt: string) => {
     if (!user || !firestore) return;
@@ -59,7 +67,8 @@ export default function DashboardPage() {
           lastModified: new Date().toISOString(),
         };
 
-        await setDoc(doc(firestore, `users/${user.uid}/projects/${newProject.id}`), newProject);
+        const projectRef = doc(firestore, `users/${user.uid}/projects/${newProject.id}`);
+        setDocumentNonBlocking(projectRef, newProject, {});
         
         setActiveProject(newProject);
         setStep('editing');
@@ -90,14 +99,15 @@ export default function DashboardPage() {
     const updatedProject = { ...activeProject, scenes: newScenes, lastModified: new Date().toISOString() };
     
     setActiveProject(updatedProject);
-    await setDoc(doc(firestore, `users/${user.uid}/projects/${updatedProject.id}`), updatedProject, { merge: true });
+    const projectRef = doc(firestore, `users/${user.uid}/projects/${updatedProject.id}`);
+    setDocumentNonBlocking(projectRef, updatedProject, { merge: true });
   };
   
   const handleExport = () => {
     setStep('export');
   };
 
-  const handleStartOver = () => {
+  const handleStartNewProject = () => {
     setActiveProject(null);
     setStep('prompt');
   };
@@ -109,52 +119,58 @@ export default function DashboardPage() {
   
   const handleDeleteProject = async (projectId: string) => {
     if (!user || !firestore) return;
-    await deleteDoc(doc(firestore, `users/${user.uid}/projects/${projectId}`));
+    const projectRef = doc(firestore, `users/${user.uid}/projects/${projectId}`);
+    deleteDocumentNonBlocking(projectRef);
+    if (activeProject?.id === projectId) {
+      setActiveProject(null);
+    }
     toast({ title: 'Project deleted' });
   };
 
   const renderDashboard = () => (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold font-headline">Your Projects</h1>
-        <Button onClick={() => setStep('prompt')}>
+        <Button onClick={handleStartNewProject}>
           <PlusCircle className="mr-2 h-4 w-4" /> New Project
         </Button>
       </div>
-      {isLoadingProjects && <Loader2 className="mx-auto animate-spin" />}
+      {isLoadingProjects && <div className="flex justify-center py-10"><Loader2 className="mx-auto animate-spin h-8 w-8" /></div>}
       {!isLoadingProjects && projects && projects.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {projects.map((p) => (
-            <Card key={p.id} className="hover:shadow-md transition-shadow">
+            <Card key={p.id} className="flex flex-col hover:shadow-lg transition-shadow">
               <CardHeader>
-                <CardTitle className="truncate">{p.name || 'Untitled Project'}</CardTitle>
-                <CardDescription>{new Date(p.creationDate).toLocaleDateString()}</CardDescription>
+                <CardTitle className="truncate font-headline">{p.name || 'Untitled Project'}</CardTitle>
+                <CardDescription>
+                  {new Date(p.creationDate).toLocaleDateString()}
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground line-clamp-2 h-10">{p.prompt}</p>
-                <div className="mt-4 flex gap-2">
+              <CardContent className="flex-grow">
+                <p className="text-sm text-muted-foreground line-clamp-3 h-[60px]">{p.prompt}</p>
+              </CardContent>
+              <CardContent className="flex gap-2 pt-0">
                   <Button className="w-full" onClick={() => handleSelectProject(p)}>Edit</Button>
-                  <Button variant="outline" className="w-full" onClick={() => handleDeleteProject(p.id)}>Delete</Button>
-                </div>
+                  <Button variant="destructive" className="w-full" onClick={() => handleDeleteProject(p.id)}>Delete</Button>
               </CardContent>
             </Card>
           ))}
         </div>
       ) : (
-        !isLoadingProjects && <p>You have no projects yet. Create one to get started!</p>
+        !isLoadingProjects && 
+        <div className="text-center py-16 border-2 border-dashed rounded-lg">
+            <h3 className="text-xl font-semibold">No Projects Yet</h3>
+            <p className="text-muted-foreground mt-2 mb-4">Click "New Project" to start creating your first video.</p>
+            <Button onClick={handleStartNewProject}>
+                <PlusCircle className="mr-2 h-4 w-4" /> New Project
+            </Button>
+        </div>
       )}
     </div>
   );
 
   const renderStep = () => {
     if (!user) return <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
-
-    if (!activeProject && step === 'prompt') {
-       if (projects && projects.length > 0) {
-         return renderDashboard();
-       }
-       return <PromptStep onPromptSubmit={handleGenerateScenes} isLoading={isLoading} />;
-    }
 
     switch (step) {
       case 'prompt':
@@ -170,15 +186,18 @@ export default function DashboardPage() {
             />
           );
         }
-        return renderDashboard();
+        break;
       case 'export':
         if (activeProject) {
-          return <ExportStep project={activeProject} onStartOver={handleStartOver} />;
+          return <ExportStep project={activeProject} onStartOver={handleStartNewProject} />;
         }
-        return renderDashboard();
+        break;
+      case 'dashboard':
       default:
         return renderDashboard();
     }
+    // Fallback for when a step is selected but there's no active project
+    return renderDashboard();
   };
 
   if (isUserLoading) {
@@ -191,7 +210,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-background">
       <Header />
       <main className="flex-1 overflow-auto bg-muted/20">
         <div className="container mx-auto px-4 py-8">

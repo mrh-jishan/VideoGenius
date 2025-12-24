@@ -16,7 +16,7 @@ interface EditorStepProps {
 
 export default function EditorStep({ project, onUpdateScene, onExport, onBackToProjects }: EditorStepProps) {
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-w-5xl mx-auto">
       <Button variant="outline" onClick={onBackToProjects}>
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Projects
@@ -24,21 +24,21 @@ export default function EditorStep({ project, onUpdateScene, onExport, onBackToP
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline">Editing: {project.name}</CardTitle>
+          <CardTitle className="font-headline text-2xl">Editing: {project.name}</CardTitle>
           <CardDescription>
             Your prompt has been transformed into {project.scenes.length} scenes. Review and edit each scene below.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm border-l-4 border-primary pl-4 py-2 bg-muted/50 rounded-r-md">
-            {project.prompt}
+            <strong>Original Prompt:</strong> {project.prompt}
           </p>
         </CardContent>
       </Card>
       
       <div>
         <h2 className="text-2xl font-bold mb-4 font-headline">Scene Editor</h2>
-        <Accordion type="single" collapsible className="w-full space-y-4" defaultValue={`item-${project.scenes[0]?.id}`}>
+        <Accordion type="single" collapsible className="w-full space-y-4" defaultValue={project.scenes.length > 0 ? `item-${project.scenes[0].id}`: undefined}>
           {project.scenes.map((scene, index) => (
             <SceneCard
               key={scene.id}
