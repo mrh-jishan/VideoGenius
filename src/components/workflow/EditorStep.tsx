@@ -17,16 +17,9 @@ interface EditorStepProps {
 export default function EditorStep({ project, onUpdateScene, onExport, onBackToProjects }: EditorStepProps) {
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
-      <div className="flex justify-between items-center">
-        <Button variant="outline" onClick={onBackToProjects}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Projects
-        </Button>
-      </div>
-
       <Card className="overflow-hidden">
         <CardHeader className="bg-muted/30">
-          <CardTitle className="font-headline text-3xl">Editing: {project.name}</CardTitle>
+          <CardTitle className="font-headline text-3xl">{project.name}</CardTitle>
           <CardDescription>
             Your prompt has been transformed into {project.scenes.length} scenes. Review and edit each scene below.
           </CardDescription>

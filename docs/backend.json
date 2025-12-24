@@ -26,6 +26,20 @@
         "geminiApiKey": {
           "type": "string",
           "description": "User's Gemini API key."
+        },
+        "ttsProvider": {
+          "type": "string",
+          "enum": ["gTTS", "AmazonPolly"],
+          "description": "The selected Text-to-Speech provider."
+        },
+        "pollyVoice": {
+          "type": "string",
+          "description": "The selected Amazon Polly voice."
+        },
+        "pollyEngine": {
+          "type": "string",
+          "enum": ["standard", "neural"],
+          "description": "The selected Amazon Polly engine."
         }
       },
       "required": [

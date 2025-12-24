@@ -19,4 +19,4 @@ export type VideoProject = {
 };
 
 // Represents the different stages of the video creation workflow
-export type WorkflowStep = 'prompt' | 'editing' | 'export' | 'dashboard';
+export type WorkflowStep = 'editing' | 'export';
