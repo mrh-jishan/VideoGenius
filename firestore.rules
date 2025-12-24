@@ -1,0 +1,117 @@
+/**
+ * Core Philosophy: This ruleset enforces a strict, user-centric ownership model. All data entities,
+ * including projects, scenes, and image assets, are private and can only be accessed by the user
+ * who created them. There is no concept of public or shared data.
+ *
+ * Data Structure: The entire data model is hierarchical, with all user-generated content nested
+ * under the `/users/{userId}` path. This creates a secure data silo for each user, ensuring that
+ * one user's data is completely isolated from another's.
+ *
+ * Key Security Decisions:
+ * - Strict Authentication: All read and write operations require a user to be signed in.
+ * - Ownership Enforcement: Access is granted by comparing the `request.auth.uid` with the `userId`
+ *   wildcard in the document path. This path-based security is simple, fast, and avoids costly
+ *   cross-document reads (`get()` calls) for authorization.
+ * - No User Listing: To protect user privacy and prevent data scraping, listing documents in the
+ *   top-level `/users` collection is explicitly disallowed.
+ * - Relational Integrity: On document creation, key identifiers (like `userId` or `projectId`)
+ *   in the document's body are validated against the IDs in the path to ensure data consistency.
+ *   These identifiers are enforced as immutable on update to prevent re-parenting documents.
+ * - Prototyping Flexibility: While authorization and relational integrity are strictly enforced,
+ *   the rules do not validate the specific data types or shapes of other fields (e.g., `prompt`,
+ *   `duration`), allowing for rapid front-end development and iteration.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+
+    /**
+     * Verifies that the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Verifies that the authenticated user's UID matches the given userId.
+     * This is the core of the ownership-based security model.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Verifies ownership for a document that already exists.
+     * Used for update and delete operations to prevent modifying non-existent data.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Rules for a user's own profile document.
+     * @path /users/{userId}
+     * @allow A user (uid: 'user123') creating their own document at /users/user123. (create)
+     * @deny An anonymous user trying to read a user document. (get)
+     * @deny A user (uid: 'user456') trying to list all users. (list)
+     * @principle Restricts access to a user's own data and prevents enumeration of all users.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for a user's projects. Projects are private to the user.
+     * @path /users/{userId}/projects/{projectId}
+     * @allow The owner (uid: 'user123') listing all their projects under /users/user123/projects. (list)
+     * @deny A different user (uid: 'user456') trying to read a project from /users/user123/projects/{projectId}. (get)
+     * @deny The owner creating a project where the document's `userId` field does not match their own UID. (create)
+     * @principle Enforces strict ownership for all operations based on the path. Validates relational integrity on writes.
+     */
+    match /users/{userId}/projects/{projectId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for scenes within a project. Access is inherited from the user owner.
+     * @path /users/{userId}/projects/{projectId}/scenes/{sceneId}
+     * @allow The owner (uid: 'user123') creating a new scene within their own project. (create)
+     * @deny A different user (uid: 'user456') trying to delete a scene. (delete)
+     * @deny The owner creating a scene where the document's `projectId` does not match the path. (create)
+     * @principle Cascades ownership from the top-level user path and validates the project relationship.
+     */
+    match /users/{userId}/projects/{projectId}/scenes/{sceneId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.projectId == projectId;
+      allow update: if isExistingOwner(userId) && request.resource.data.projectId == resource.data.projectId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for a user's private image assets.
+     * @path /users/{userId}/imageAssets/{imageAssetId}
+     * @allow The owner (uid: 'user123') reading one of their image assets. (get)
+     * @allow The owner (uid: 'user123') listing their own image assets. (list)
+     * @deny A different user (uid: 'user456') trying to create an image asset under another user's path. (create)
+     * @principle Enforces strict ownership for a user's private collection of assets.
+     */
+    match /users/{userId}/imageAssets/{imageAssetId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+  }
+}
