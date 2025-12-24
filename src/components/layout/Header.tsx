@@ -6,18 +6,25 @@ import UserProfileButton from '@/components/auth/UserProfileButton';
 import { Button } from '@/components/ui/button';
 import { useSidebar } from '@/components/ui/sidebar';
 
-export default function Header() {
+type HeaderProps = {
+  showSidebarToggle?: boolean;
+};
+
+export default function Header({ showSidebarToggle = true }: HeaderProps) {
   const { toggleSidebar } = useSidebar();
   
   return (
     <header className="bg-card border-b sticky top-0 z-40">
       <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={toggleSidebar}>
-            <PanelLeft className="h-6 w-6" />
-            <span className="sr-only">Toggle Sidebar</span>
-          </Button>
+          {showSidebarToggle && (
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={toggleSidebar}>
+              <PanelLeft className="h-6 w-6" />
+              <span className="sr-only">Toggle Sidebar</span>
+            </Button>
+          )}
           <Link href="/" className="flex items-center gap-3">
+            <Clapperboard className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold text-foreground tracking-tight font-headline hidden sm:block">
               VideoGenius
             </h1>
