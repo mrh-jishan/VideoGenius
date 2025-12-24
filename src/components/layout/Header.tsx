@@ -1,29 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { Clapperboard, PanelLeft } from 'lucide-react';
+import { Clapperboard } from 'lucide-react';
 import UserProfileButton from '@/components/auth/UserProfileButton';
-import { Button } from '@/components/ui/button';
-import { useSidebar } from '@/components/ui/sidebar';
 
-type HeaderProps = {
-  showSidebarToggle?: boolean;
-};
-
-export default function Header({ showSidebarToggle = true }: HeaderProps) {
-  const { toggleSidebar } = useSidebar();
-  
+export default function Header() {
   return (
     <header className="bg-card border-b sticky top-0 z-40">
       <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2">
-          {showSidebarToggle && (
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={toggleSidebar}>
-              <PanelLeft className="h-6 w-6" />
-              <span className="sr-only">Toggle Sidebar</span>
-            </Button>
-          )}
-          <Link href="/" className="flex items-center gap-3">
+          <Link href="/dashboard" className="flex items-center gap-3">
             <Clapperboard className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold text-foreground tracking-tight font-headline hidden sm:block">
               VideoGenius

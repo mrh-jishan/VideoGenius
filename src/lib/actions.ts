@@ -26,8 +26,12 @@ export async function generateScenesAction(
     const scenes = await generateInitialScenes(input);
     return scenes;
   } catch (error) {
+    const message =
+      error instanceof Error && /API key/i.test(error.message)
+        ? 'Gemini API key missing. Set GEMINI_API_KEY or GOOGLE_API_KEY on the server.'
+        : 'Failed to generate scenes due to a server error.';
     console.error('Error in generateInitialScenes flow:', error);
-    throw new Error('Failed to generate scenes due to a server error.');
+    throw new Error(message);
   }
 }
 

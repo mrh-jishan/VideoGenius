@@ -6,7 +6,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
-  SidebarTrigger,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
@@ -25,8 +24,6 @@ export default function AppSidebar() {
   const firestore = useFirestore();
   const router = useRouter();
   const pathname = usePathname();
-  const params = useParams();
-  const projectId = params.projectId as string;
 
   const projectsQuery = useMemoFirebase(
     () => (user && firestore ? collection(firestore, `users/${user.uid}/projects`) : null),
@@ -35,29 +32,33 @@ export default function AppSidebar() {
   const { data: projects, isLoading: isLoadingProjects } = useCollection<VideoProject>(projectsQuery);
 
   return (
-    <Sidebar collapsible="icon" side="left" variant="sidebar" className="border-r bg-sidebar text-sidebar-foreground">
-      <SidebarHeader className="flex items-center justify-between p-4 border-b border-sidebar-border">
-        <Link href="/" className="flex items-center gap-2 font-semibold text-lg group-data-[collapsible=icon]:-ml-1 group-data-[collapsible=icon]:pointer-events-none">
-          <Clapperboard className="h-5 w-5 text-sidebar-primary" />
-          <span className="group-data-[collapsible=icon]:hidden">VideoGenius</span>
+    <Sidebar
+      side="left"
+      variant="sidebar"
+      collapsible="none"
+      className="border-r bg-sidebar text-sidebar-foreground w-64 h-full sticky top-0 flex-shrink-0 overflow-y-auto"
+    >
+      <SidebarHeader className="flex items-center gap-2 px-5 py-4 border-b border-sidebar-border">
+        <Link href="/" className="flex items-center gap-2 font-semibold text-lg">
+          <Clapperboard className="h-6 w-6 text-sidebar-primary" />
+          <span className="">VideoGenius</span>
         </Link>
-        <SidebarTrigger className="group-data-[collapsible=icon]:hidden" />
       </SidebarHeader>
 
-      <SidebarContent className="flex-1 p-4 space-y-6">
-        <div>
+      <SidebarContent className="flex-1 px-5 py-4 space-y-6">
+        <div className="flex">
           <Button
             variant="default"
-            className="w-full bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+            className="w-full justify-center bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
             onClick={() => router.push('/new-project')}
           >
             <PlusCircle className="h-4 w-4" />
-            <span className="group-data-[collapsible=icon]:hidden ml-2">New Project</span>
+            <span className="ml-2">New Project</span>
           </Button>
         </div>
 
         <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
+          <p className="text-xs font-semibold uppercase tracking-wide text-sidebar-foreground/70 px-1">
             My Projects
           </p>
           <div className="flex-1 overflow-y-auto">
@@ -88,7 +89,7 @@ export default function AppSidebar() {
         </div>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-4">
+      <SidebarFooter className="border-t border-sidebar-border p-4 group-data-[collapsible=icon]:p-3 space-y-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -98,7 +99,7 @@ export default function AppSidebar() {
               className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
             >
               <Home className="h-4 w-4" />
-              <span className="group-data-[collapsible=icon]:hidden">Dashboard</span>
+              <span>Dashboard</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
@@ -109,7 +110,7 @@ export default function AppSidebar() {
               className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
             >
               <Settings className="h-4 w-4" />
-              <span className="group-data-[collapsible=icon]:hidden">Settings</span>
+              <span>Settings</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
