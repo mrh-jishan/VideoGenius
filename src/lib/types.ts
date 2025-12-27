@@ -20,9 +20,20 @@ export type VideoProject = {
   userId: string;
   name: string;
   prompt: string;
+  aspectRatio?: 'horizontal' | 'vertical';
+  targetDurationSeconds?: number;
+  desiredSceneCount?: number;
+  globalBgAudio?: MediaResult;
   scenes: Scene[];
   creationDate: string; // ISO string
   lastModified: string; // ISO string
+  renderOptions?: {
+    ttsProvider?: 'gTTS' | 'AmazonPolly';
+    voiceId?: string;
+    engine?: string;
+    model?: string;
+    notes?: string;
+  };
 };
 
 // Represents the different stages of the video creation workflow

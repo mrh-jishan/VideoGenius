@@ -13,7 +13,7 @@ import {
 import { getServerFirestore } from '@/firebase/server';
 import { doc, getDoc } from 'firebase/firestore';
 
-type UserConfig = {
+export type UserConfig = {
   geminiApiKey?: string;
   pixabayKey?: string;
   freesoundKey?: string;
@@ -51,14 +51,21 @@ function normalizeSearchQuery(query: string, { maxKeywords = 8, maxLength = 100 
  * @returns A promise that resolves to the generated scenes or throws an error.
  */
 export async function generateScenesAction(
-  input: GenerateInitialScenesInput & { userId: string }
+  input: GenerateInitialScenesInput & { userId: string; userConfig?: UserConfig }
 ): Promise<GenerateInitialScenesOutput> {
   if (!input.prompt || input.prompt.trim().length < 10) {
     throw new Error('Prompt is too short. Please provide a more detailed description.');
   }
 
-  const { userId, ...sceneInput } = input;
-  const { geminiApiKey } = await getUserConfig(userId);
+  const { userId, userConfig, ...sceneInput } = input;
+  let geminiApiKey = userConfig?.geminiApiKey;
+  if (!geminiApiKey) {
+    try {
+      geminiApiKey = (await getUserConfig(userId)).geminiApiKey;
+    } catch (err) {
+      console.error('Failed to load user config for Gemini key', err);
+    }
+  }
   if (!geminiApiKey) {
     throw new Error('Gemini API key missing. Save your key in Settings.');
   }
@@ -82,10 +89,17 @@ export async function generateScenesAction(
  * @returns A promise that resolves to the suggested keywords.
  */
 export async function getKeywordSuggestionsAction(
-  input: ModifyKeywordsInput & { userId: string }
+  input: ModifyKeywordsInput & { userId: string; userConfig?: UserConfig }
 ): Promise<ModifyKeywordsOutput> {
-  const { userId, ...suggestionInput } = input;
-  const { geminiApiKey } = await getUserConfig(userId);
+  const { userId, userConfig, ...suggestionInput } = input;
+  let geminiApiKey = userConfig?.geminiApiKey;
+  if (!geminiApiKey) {
+    try {
+      geminiApiKey = (await getUserConfig(userId)).geminiApiKey;
+    } catch (err) {
+      console.error('Failed to load user config for Gemini key', err);
+    }
+  }
   if (!geminiApiKey) {
     throw new Error('Gemini API key missing. Save your key in Settings.');
   }
@@ -106,12 +120,21 @@ export async function searchVisualMediaAction({
   query,
   mediaType,
   userId,
+  userConfig,
 }: {
   query: string;
   mediaType: 'video' | 'image';
   userId: string;
+  userConfig?: UserConfig;
 }): Promise<MediaResult[]> {
-  const { pixabayKey: apiKey } = await getUserConfig(userId);
+  let apiKey = userConfig?.pixabayKey;
+  if (!apiKey) {
+    try {
+      apiKey = (await getUserConfig(userId)).pixabayKey;
+    } catch (err) {
+      console.error('Failed to load user config for Pixabay key', err);
+    }
+  }
   if (!apiKey) {
     throw new Error('Pixabay API key missing. Save your Pixabay key in Settings.');
   }
@@ -159,11 +182,20 @@ export async function searchVisualMediaAction({
 export async function searchAudioMediaAction({
   query,
   userId,
+  userConfig,
 }: {
   query: string;
   userId: string;
+  userConfig?: UserConfig;
 }): Promise<MediaResult[]> {
-  const { freesoundKey: apiKey } = await getUserConfig(userId);
+  let apiKey = userConfig?.freesoundKey;
+  if (!apiKey) {
+    try {
+      apiKey = (await getUserConfig(userId)).freesoundKey;
+    } catch (err) {
+      console.error('Failed to load user config for Freesound key', err);
+    }
+  }
   if (!apiKey) {
     throw new Error('Freesound API key missing. Save your Freesound key in Settings.');
   }

@@ -42,43 +42,52 @@ export default function ProjectPage() {
   const handleUpdateScene = async (updatedScene: Scene) => {
     if (!project || !projectDocRef) return;
 
-    const cleanMedia = (media?: MediaResult) => {
-      if (!media) return undefined;
-      const cleaned: Partial<MediaResult> = {
-        id: media.id,
-        type: media.type,
-        title: media.title,
-        url: media.url,
-      };
-      if (media.previewUrl) cleaned.previewUrl = media.previewUrl;
-      if (typeof media.duration === 'number') cleaned.duration = media.duration;
-      if (media.tags && media.tags.length) cleaned.tags = media.tags;
-      return cleaned as MediaResult;
-    };
-
-    const cleanScene = (scene: Scene) => {
-      const { selectedVisual, selectedAudio, transitionVisual, narrationVideo, bgAudio, asset, ...rest } = scene;
-      const next: any = { ...rest };
-      if (asset) next.asset = asset;
-      const visual = cleanMedia(selectedVisual);
-      if (visual) next.selectedVisual = visual;
-      const audio = cleanMedia(selectedAudio);
-      if (audio) next.selectedAudio = audio;
-      const transition = cleanMedia(transitionVisual);
-      if (transition) next.transitionVisual = transition;
-      const narrationVid = cleanMedia(narrationVideo);
-      if (narrationVid) next.narrationVideo = narrationVid;
-      const bg = cleanMedia(bgAudio);
-      if (bg) next.bgAudio = bg;
-      return next;
-    };
-
     const newScenes = project.scenes.map((scene) =>
       scene.id === updatedScene.id ? cleanScene(updatedScene) : cleanScene(scene)
     );
     const updatedProject = { ...project, scenes: newScenes, lastModified: new Date().toISOString() };
     
     setDocumentNonBlocking(projectDocRef, updatedProject, { merge: true });
+  };
+
+  const cleanMedia = (media?: MediaResult) => {
+    if (!media) return undefined;
+    const cleaned: Partial<MediaResult> = {
+      id: media.id,
+      type: media.type,
+      title: media.title,
+      url: media.url,
+    };
+    if (media.previewUrl) cleaned.previewUrl = media.previewUrl;
+    if (typeof media.duration === 'number') cleaned.duration = media.duration;
+    if (media.tags && media.tags.length) cleaned.tags = media.tags;
+    return cleaned as MediaResult;
+  };
+
+  const cleanScene = (scene: Scene) => {
+    const { selectedVisual, selectedAudio, transitionVisual, narrationVideo, bgAudio, asset, ...rest } = scene;
+    const next: any = { ...rest };
+    if (asset) next.asset = asset;
+    const visual = cleanMedia(selectedVisual);
+    if (visual) next.selectedVisual = visual;
+    const audio = cleanMedia(selectedAudio);
+    if (audio) next.selectedAudio = audio;
+    const transition = cleanMedia(transitionVisual);
+    if (transition) next.transitionVisual = transition;
+    const narrationVid = cleanMedia(narrationVideo);
+    if (narrationVid) next.narrationVideo = narrationVid;
+    const bg = cleanMedia(bgAudio);
+    if (bg) next.bgAudio = bg;
+    return next;
+  };
+
+  const handleUpdateProjectMeta = (payload: Partial<VideoProject>) => {
+    if (!project || !projectDocRef) return;
+    const next: Partial<VideoProject> = { ...payload };
+    if (payload.globalBgAudio) {
+      next.globalBgAudio = cleanMedia(payload.globalBgAudio);
+    }
+    setDocumentNonBlocking(projectDocRef, { ...next, lastModified: new Date().toISOString() }, { merge: true });
   };
   
   const handleExport = () => {
@@ -104,10 +113,11 @@ export default function ProjectPage() {
             onBackToProjects={() => router.push('/dashboard')}
             userId={project.userId}
             userConfig={userConfig}
+            onUpdateProjectMeta={handleUpdateProjectMeta}
           />
         );
       case 'export':
-        return <ExportStep project={project} onStartOver={() => router.push('/new-project')} />;
+        return <ExportStep project={project} userConfig={userConfig} onStartOver={() => router.push('/new-project')} />;
       default:
         return null;
     }

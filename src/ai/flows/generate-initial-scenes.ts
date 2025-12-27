@@ -15,6 +15,7 @@ const GenerateInitialScenesInputSchema = z.object({
   prompt: z.string().describe('The main text prompt for video generation.'),
   aspectRatio: z.enum(['horizontal', 'vertical']).describe('The aspect ratio of the video.'),
   duration: z.number().describe('The target duration of the video in seconds.'),
+  sceneCount: z.number().min(1).max(30).default(6).describe('Desired number of scenes to generate.'),
 });
 export type GenerateInitialScenesInput = z.infer<typeof GenerateInitialScenesInputSchema>;
 
@@ -41,7 +42,7 @@ const initialScenesPrompt = ai.definePrompt({
   prompt: `You are an AI video scene planner. Given the following prompt and parameters, generate a set of video scenes.
 
   The final video should be approximately {{duration}} seconds long and have a {{aspectRatio}} aspect ratio.
-  Distribute the total duration across the scenes you generate.
+  Try to produce around {{sceneCount}} scenes (adjust if needed for pacing) and distribute the total duration across them.
 
   Prompt: {{{prompt}}}
 

@@ -18,9 +18,28 @@ import { cn } from '@/lib/utils';
 interface AssetSelectorProps {
   selectedAsset?: ImagePlaceholder;
   onSelect: (asset: ImagePlaceholder) => void;
+  query?: string;
 }
 
-export default function AssetSelector({ selectedAsset, onSelect }: AssetSelectorProps) {
+export default function AssetSelector({ selectedAsset, onSelect, query }: AssetSelectorProps) {
+  const normalizedTerms = query
+    ? query
+        .toLowerCase()
+        .split(/[\s,]+/)
+        .filter(Boolean)
+    : [];
+
+  const rankedImages = normalizedTerms.length
+    ? [...PlaceHolderImages].sort((a, b) => {
+        const score = (img: ImagePlaceholder) =>
+          normalizedTerms.reduce((acc, term) => {
+            const haystack = `${img.description} ${img.imageHint}`.toLowerCase();
+            return haystack.includes(term) ? acc + 1 : acc;
+          }, 0);
+        return score(b) - score(a);
+      })
+    : PlaceHolderImages;
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -53,10 +72,15 @@ export default function AssetSelector({ selectedAsset, onSelect }: AssetSelector
       <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Select an Asset</DialogTitle>
+          {normalizedTerms.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              Showing best matches for: <span className="font-medium">{normalizedTerms.join(', ')}</span>
+            </p>
+          )}
         </DialogHeader>
         <ScrollArea className="h-[60vh] -mx-6">
           <div className="px-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {PlaceHolderImages.map((image) => (
+            {rankedImages.map((image) => (
               <DialogTrigger key={image.id} asChild>
                 <button
                   onClick={() => onSelect(image)}

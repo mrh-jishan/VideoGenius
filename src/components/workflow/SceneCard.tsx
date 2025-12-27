@@ -1,6 +1,6 @@
 'use client';
 
-import { GripVertical, Image as ImageIcon, Music, Type, Timer, Video, Image, Sparkles, Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { GripVertical, Image as ImageIcon, Music, Type, Timer, Video, Image, Sparkles, Loader2, AlertTriangle, ExternalLink, Wand2 } from 'lucide-react';
 import type { Scene } from '@/lib/types';
 import type { ImagePlaceholder } from '@/lib/placeholder-images';
 import {
@@ -13,29 +13,28 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import AssetSelector from './AssetSelector';
-import KeywordEditor from './KeywordEditor';
 import NarrationPreview from './NarrationPreview';
 import { Card, CardContent } from '@/components/ui/card';
 import NextImage from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import type { MediaResult } from '@/lib/actions';
+import type { MediaResult, UserConfig } from '@/lib/actions';
+import { getKeywordSuggestionsAction } from '@/lib/actions';
 import { useState, useMemo, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Input as CTAInput } from '@/components/ui/input';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface SceneCardProps {
   scene: Scene;
   sceneNumber: number;
   onUpdate: (scene: Scene) => void;
   userId: string;
-  userConfig?: {
-    pixabayKey?: string;
-    freesoundKey?: string;
-  };
+  userConfig?: UserConfig;
+  validationErrors?: string[];
 }
 
-export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userConfig }: SceneCardProps) {
+export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userConfig, validationErrors = [] }: SceneCardProps) {
   const { toast } = useToast();
   const [visualType, setVisualType] = useState<'video' | 'image'>('video');
   const [visualQuery, setVisualQuery] = useState(scene.visualPrompt || scene.title);
@@ -44,20 +43,82 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
   const [isLoadingVisual, setIsLoadingVisual] = useState(false);
   const [visualError, setVisualError] = useState<string | null>(null);
 
-  const [audioQuery, setAudioQuery] = useState(scene.musicMood || scene.sfxKeywords || scene.title);
+  const [audioQuery, setAudioQuery] = useState(scene.musicMood || scene.sfxKeywords || scene.title || scene.narration);
   const [audioExtra, setAudioExtra] = useState('');
   const [audioResults, setAudioResults] = useState<MediaResult[]>([]);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [isSuggestingVisual, setIsSuggestingVisual] = useState(false);
+  const [isSuggestingAudio, setIsSuggestingAudio] = useState(false);
 
-  const visualSearchTerm = useMemo(
-    () => [visualQuery, visualExtra].filter(Boolean).join(' '),
-    [visualQuery, visualExtra]
-  );
-  const audioSearchTerm = useMemo(
-    () => [audioQuery, audioExtra].filter(Boolean).join(' '),
-    [audioQuery, audioExtra]
-  );
+  const visualSearchTerm = useMemo(() => {
+    const parts = [
+      visualQuery,
+      visualExtra,
+      scene.visualPrompt,
+      scene.narration,
+      scene.title,
+    ]
+      .filter(Boolean)
+      .join(' ');
+    return parts;
+  }, [visualQuery, visualExtra, scene.visualPrompt, scene.narration, scene.title]);
+
+  const audioSearchTerm = useMemo(() => {
+    const parts = [
+      audioQuery,
+      audioExtra,
+      scene.musicMood,
+      scene.sfxKeywords,
+      scene.title,
+      scene.visualPrompt,
+    ]
+      .filter(Boolean)
+      .join(' ');
+    return parts;
+  }, [audioQuery, audioExtra, scene.musicMood, scene.sfxKeywords, scene.title, scene.visualPrompt]);
+
+  const safeUserConfig = userConfig
+    ? {
+        geminiApiKey: userConfig.geminiApiKey,
+        pixabayKey: userConfig.pixabayKey,
+        freesoundKey: userConfig.freesoundKey,
+      }
+    : undefined;
+
+  const suggestKeywords = async (kind: 'visual' | 'audio') => {
+    const setLoading = kind === 'visual' ? setIsSuggestingVisual : setIsSuggestingAudio;
+    setLoading(true);
+    try {
+      const existing = (kind === 'visual' ? visualQuery : audioQuery)
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean);
+      const response = await getKeywordSuggestionsAction({
+        sceneDescription: scene.narration || scene.visualPrompt || scene.title,
+        existingKeywords: existing,
+        newKeywords: existing,
+        userId,
+        userConfig: safeUserConfig,
+      });
+      const suggestion = response.suggestedKeywords.join(', ');
+      if (kind === 'visual') {
+        setVisualQuery(suggestion);
+        toast({ title: 'Updated visual keywords', description: 'Using AI-suggested keywords.' });
+      } else {
+        setAudioQuery(suggestion);
+        toast({ title: 'Updated audio keywords', description: 'Using AI-suggested keywords.' });
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Suggestion failed',
+        description: 'Could not fetch keyword suggestions. Check Gemini key in Settings.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleFieldChange = (field: keyof Scene, value: string | number) => {
     onUpdate({ ...scene, [field]: value });
   };
@@ -78,9 +139,6 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
     });
   }
 
-  const handleKeywordUpdate = (type: 'musicMood' | 'sfxKeywords', value: string) => {
-    onUpdate({ ...scene, [type]: value });
-  }
   const handleSelectTransitionVisual = (media: MediaResult) => {
     onUpdate({ ...scene, selectedVisual: media, transitionVisual: media, asset: undefined });
   };
@@ -102,7 +160,12 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
     setIsLoadingVisual(true);
     setVisualError(null);
     try {
-      const safeQuery = (visualSearchTerm || scene.visualPrompt || scene.title || '').split(/[, ]+/).filter(Boolean).slice(0, 8).join(' ').slice(0, 100);
+      const safeQuery = (visualSearchTerm || scene.visualPrompt || scene.title || '')
+        .split(/[, ]+/)
+        .filter(Boolean)
+        .slice(0, 10)
+        .join(' ')
+        .slice(0, 120);
       const endpoint =
         visualType === 'video'
           ? `https://pixabay.com/api/videos/?key=${userConfig.pixabayKey}&q=${encodeURIComponent(safeQuery)}&per_page=8&safesearch=true`
@@ -112,13 +175,23 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
       const data = await res.json();
       const mapped: MediaResult[] = (data.hits || []).map((hit: any) => {
         if (visualType === 'video') {
-          const videoUrl = hit.videos?.medium?.url || hit.videos?.small?.url;
+          const videoUrl =
+            hit.videos?.large?.url ||
+            hit.videos?.medium?.url ||
+            hit.videos?.small?.url ||
+            hit.videos?.tiny?.url;
+          const previewThumb =
+            hit.videos?.large?.thumbnail ||
+            hit.videos?.medium?.thumbnail ||
+            hit.videos?.small?.thumbnail ||
+            hit.videos?.tiny?.thumbnail ||
+            hit.previewURL;
           return {
             id: String(hit.id),
             type: 'video',
             title: hit.tags || 'Pixabay Video',
             url: videoUrl,
-            previewUrl: hit.picture_id ? `https://i.vimeocdn.com/video/${hit.picture_id}_295x166.jpg` : undefined,
+            previewUrl: previewThumb,
             tags: hit.tags ? String(hit.tags).split(',').map((t: string) => t.trim()) : [],
           };
         }
@@ -126,8 +199,8 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
           id: String(hit.id),
           type: 'image',
           title: hit.tags || 'Pixabay Image',
-          url: hit.largeImageURL || hit.webformatURL,
-          previewUrl: hit.previewURL,
+          url: hit.imageURL || hit.fullHDURL || hit.largeImageURL || hit.webformatURL,
+          previewUrl: hit.previewURL || hit.webformatURL,
           tags: hit.tags ? String(hit.tags).split(',').map((t: string) => t.trim()) : [],
         };
       });
@@ -152,7 +225,12 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
     setIsLoadingAudio(true);
     setAudioError(null);
     try {
-      const safeQuery = (audioSearchTerm || scene.musicMood || scene.title || '').split(/[, ]+/).filter(Boolean).slice(0, 8).join(' ').slice(0, 100);
+      const safeQuery = (audioSearchTerm || scene.musicMood || scene.title || '')
+        .split(/[, ]+/)
+        .filter(Boolean)
+        .slice(0, 10)
+        .join(' ')
+        .slice(0, 120);
       const endpoint = `https://freesound.org/apiv2/search/text/?query=${encodeURIComponent(
         safeQuery
       )}&fields=id,name,previews,duration,tags&token=${userConfig.freesoundKey}&page_size=10`;
@@ -206,67 +284,69 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
         </div>
       </AccordionTrigger>
       <AccordionContent className="p-4 pt-0">
+        {validationErrors.length > 0 && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="text-sm space-y-1">
+              {validationErrors.map((msg, idx) => (
+                <div key={idx}>{msg}</div>
+              ))}
+            </AlertDescription>
+          </Alert>
+        )}
         <Tabs defaultValue="content">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-4 gap-2">
             <TabsTrigger value="content"><Type className="mr-2 h-4 w-4" />Content</TabsTrigger>
-            <TabsTrigger value="transition"><ImageIcon className="mr-2 h-4 w-4" />Transition Visual</TabsTrigger>
-            <TabsTrigger value="narration"><Video className="mr-2 h-4 w-4" />Narration Video</TabsTrigger>
+            <TabsTrigger value="transition"><ImageIcon className="mr-2 h-4 w-4" />Transition</TabsTrigger>
+            <TabsTrigger value="narration"><Video className="mr-2 h-4 w-4" />Narration</TabsTrigger>
             <TabsTrigger value="audio"><Music className="mr-2 h-4 w-4" />Audio</TabsTrigger>
           </TabsList>
           
           <TabsContent value="content" className="mt-4 space-y-4">
             <Card>
-                <CardContent className="p-6 grid gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor={`title-${scene.id}`}>Scene Title</Label>
-                      <Input
-                        id={`title-${scene.id}`}
-                        value={scene.title}
-                        onChange={(e) => handleFieldChange('title', e.target.value)}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor={`narration-${scene.id}`}>Narration</Label>
-                      <Textarea
-                        id={`narration-${scene.id}`}
-                        value={scene.narration}
+              <CardContent className="p-4 space-y-4">
+                <div className="grid gap-3 md:grid-cols-3 md:items-end">
+                  <div className="grid gap-2 md:col-span-2">
+                    <Label htmlFor={`title-${scene.id}`}>Scene Title</Label>
+                    <Input
+                      id={`title-${scene.id}`}
+                      value={scene.title}
+                      onChange={(e) => handleFieldChange('title', e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`duration-${scene.id}`}>Duration (seconds)</Label>
+                    <Input
+                      id={`duration-${scene.id}`}
+                      type="number"
+                      value={scene.duration}
+                      onChange={(e) => handleFieldChange('duration', e.target.valueAsNumber)}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor={`narration-${scene.id}`}>Narration</Label>
+                  <Textarea
+                    id={`narration-${scene.id}`}
+                    value={scene.narration}
                     onChange={(e) => handleFieldChange('narration', e.target.value)}
                     className="min-h-24"
                   />
                 </div>
-                     <div className="grid gap-2">
-                        <Label htmlFor={`duration-${scene.id}`}>Duration (seconds)</Label>
-                        <Input
-                            id={`duration-${scene.id}`}
-                            type="number"
-                            value={scene.duration}
-                            onChange={(e) => handleFieldChange('duration', e.target.valueAsNumber)}
-                            className="w-24"
-                        />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Call to Action</Label>
-                      <CTAInput
-                        value={scene.callToAction ?? userConfig?.channelName ?? ''}
-                        onChange={(e) => handleFieldChange('callToAction', e.target.value)}
-                        placeholder={userConfig?.channelName ? `e.g., Subscribe to ${userConfig.channelName}` : 'Add a CTA for this scene'}
-                      />
-                      {userConfig?.socialLinks && (
-                        <p className="text-xs text-muted-foreground">
-                          Social links available in settings: {userConfig.socialLinks}
-                        </p>
-                      )}
-                    </div>
-                </CardContent>
+              </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="transition" className="mt-4 space-y-4">
             <Card>
-              <CardContent className="p-6 space-y-4">
+              <CardContent className="p-4 space-y-4">
                 <div className="grid gap-2">
                   <Label>Transition Image (Asset Library)</Label>
-                  <AssetSelector selectedAsset={scene.asset} onSelect={handleAssetSelect} />
+                  <AssetSelector
+                    selectedAsset={scene.asset}
+                    onSelect={handleAssetSelect}
+                    query={[scene.title, scene.visualPrompt, scene.narration].filter(Boolean).join(' ')}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -274,7 +354,7 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
 
           <TabsContent value="narration" className="mt-4 space-y-4">
             <Card>
-              <CardContent className="p-6 space-y-4">
+              <CardContent className="p-4 space-y-4">
                 <div className="grid gap-2">
                   <Label>Narration Video</Label>
                   {scene.narrationVideo ? (
@@ -288,19 +368,23 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                         Selected narration {scene.narrationVideo.type}
                       </div>
                       {scene.narrationVideo.type === 'image' ? (
-                        <img
-                          src={scene.narrationVideo.previewUrl || scene.narrationVideo.url}
-                          alt={scene.narrationVideo.title}
-                          className="w-full max-h-60 rounded-md object-cover"
-                        />
+                        <div className="aspect-video w-full max-h-[320px] overflow-hidden rounded-md bg-muted">
+                          <img
+                            src={scene.narrationVideo.previewUrl || scene.narrationVideo.url}
+                            alt={scene.narrationVideo.title}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
                       ) : (
-                        <video
-                          src={scene.narrationVideo.url}
-                          poster={scene.narrationVideo.previewUrl}
-                          controls
-                          className="w-full max-h-60 rounded-md"
-                          preload="metadata"
-                        />
+                        <div className="aspect-video w-full max-h-[320px] overflow-hidden rounded-md bg-black">
+                          <video
+                            src={scene.narrationVideo.url}
+                            poster={scene.narrationVideo.previewUrl}
+                            controls
+                            className="h-full w-full object-cover"
+                            preload="metadata"
+                          />
+                        </div>
                       )}
                       <div className="text-xs text-muted-foreground truncate">{scene.narrationVideo.title}</div>
                     </div>
@@ -325,41 +409,57 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                   </p>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-3 md:items-end">
-                  <div className="grid gap-2 md:col-span-2">
-                    <Label>Search keywords</Label>
-                    <Input
-                      value={visualQuery}
-                      onChange={(e) => setVisualQuery(e.target.value)}
-                      placeholder="Use scene prompt or custom keywords"
-                    />
-                    <Input
-                      value={visualExtra}
-                      onChange={(e) => setVisualExtra(e.target.value)}
-                      placeholder="Extra prompt (optional)"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Result type</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        variant={visualType === 'video' ? 'default' : 'outline'}
-                        onClick={() => setVisualType('video')}
-                        size="sm"
+                <div className="grid gap-2">
+                  <Label>Search keywords</Label>
+                  <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
+                    <div className="flex flex-col gap-2 sm:flex-row flex-1">
+                      <Input
+                        value={visualQuery}
+                        onChange={(e) => setVisualQuery(e.target.value)}
+                        placeholder="Use scene prompt or custom keywords"
                         className="flex-1"
-                      >
-                        <Video className="h-4 w-4 mr-1" /> Video
-                      </Button>
-                      <Button
-                        variant={visualType === 'image' ? 'default' : 'outline'}
-                        onClick={() => setVisualType('image')}
-                        size="sm"
+                      />
+                      <Input
+                        value={visualExtra}
+                        onChange={(e) => setVisualExtra(e.target.value)}
+                        placeholder="Extra prompt (optional)"
                         className="flex-1"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="text-xs uppercase tracking-wide text-muted-foreground">Result</span>
+                      <RadioGroup
+                        value={visualType}
+                        onValueChange={(val) => setVisualType(val as 'video' | 'image')}
+                        className="flex gap-2"
                       >
-                        <Image className="h-4 w-4 mr-1" /> Image
+                        <Label
+                          htmlFor={`narration-video-${scene.id}`}
+                          className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/10"
+                        >
+                          <RadioGroupItem id={`narration-video-${scene.id}`} value="video" />
+                          <Video className="h-4 w-4" /> Video
+                        </Label>
+                        <Label
+                          htmlFor={`narration-image-${scene.id}`}
+                          className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/10"
+                        >
+                          <RadioGroupItem id={`narration-image-${scene.id}`} value="image" />
+                          <Image className="h-4 w-4" /> Image
+                        </Label>
+                      </RadioGroup>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="whitespace-nowrap"
+                        onClick={() => suggestKeywords('visual')}
+                        disabled={isSuggestingVisual}
+                      >
+                        {isSuggestingVisual ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wand2 className="h-4 w-4 mr-2" />}
+                        AI suggest
                       </Button>
                     </div>
-                    <Button onClick={handleVisualSearch} disabled={isLoadingVisual} className="w-full">
+                    <Button onClick={handleVisualSearch} disabled={isLoadingVisual} className="w-full lg:w-auto whitespace-nowrap">
                       {isLoadingVisual ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
                       Search {visualType === 'video' ? 'videos' : 'images'}
                     </Button>
@@ -410,66 +510,78 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
           </TabsContent>
 
           <TabsContent value="audio" className="mt-4 space-y-4">
-            <KeywordEditor scene={scene} onUpdateKeywords={handleKeywordUpdate} userId={userId} />
             <Card>
-              <CardContent className="p-6 space-y-6">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-3">
-                    <Label className="text-sm font-semibold">Search background audio</Label>
-                    <Input
-                      value={audioQuery}
-                      onChange={(e) => setAudioQuery(e.target.value)}
-                      placeholder="e.g., cinematic, inspiring"
-                    />
-                    <Input
-                      value={audioExtra}
-                      onChange={(e) => setAudioExtra(e.target.value)}
-                      placeholder="Extra prompt (optional)"
-                    />
+              <CardContent className="p-4 space-y-6">
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Search background audio</Label>
+                  <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
+                    <div className="flex flex-col gap-2 sm:flex-row flex-1">
+                      <Input
+                        value={audioQuery}
+                        onChange={(e) => setAudioQuery(e.target.value)}
+                        placeholder="e.g., cinematic, inspiring"
+                        className="flex-1"
+                      />
+                      <Input
+                        value={audioExtra}
+                        onChange={(e) => setAudioExtra(e.target.value)}
+                        placeholder="Extra prompt (optional)"
+                        className="flex-1"
+                      />
+                    </div>
                     <div className="flex gap-2">
-                      <Button onClick={handleAudioSearch} disabled={isLoadingAudio} className="flex-1">
+                      <Button onClick={handleAudioSearch} disabled={isLoadingAudio} className="whitespace-nowrap">
                         {isLoadingAudio ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
                         Search audio
                       </Button>
-                      <Button variant="secondary" onClick={() => handleKeywordUpdate('musicMood', audioQuery)}>
-                        Save keywords
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="whitespace-nowrap"
+                        onClick={() => suggestKeywords('audio')}
+                        disabled={isSuggestingAudio}
+                      >
+                        {isSuggestingAudio ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wand2 className="h-4 w-4 mr-2" />}
+                        AI suggest
                       </Button>
                     </div>
-                    {audioError && (
-                      <Alert variant="destructive">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertDescription className="text-sm">
-                          {audioError}{' '}
-                          <Button variant="link" className="px-1" onClick={() => (window.location.href = '/profile')}>
-                            Go to Settings
-                          </Button>
-                        </AlertDescription>
-                      </Alert>
-                    )}
                   </div>
-
-                  <div className="space-y-3">
-                    <Label className="text-sm font-semibold">Selected background audio</Label>
-                    {scene.bgAudio ? (
-                      <div className="rounded-md border p-3 space-y-2">
-                        <div className="text-sm font-semibold flex items-center gap-2">
-                          {scene.bgAudio.title}
-                        </div>
-                        <audio controls className="w-full">
-                          <source src={scene.bgAudio.url} type="audio/mpeg" />
-                          {scene.bgAudio.previewUrl && <source src={scene.bgAudio.previewUrl} type="audio/ogg" />}
-                        </audio>
-                        {scene.bgAudio.tags && (
-                          <div className="text-xs text-muted-foreground truncate">Tags: {scene.bgAudio.tags.join(', ')}</div>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No background audio selected yet.</p>
-                    )}
-                  </div>
+                  {audioError && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription className="text-sm">
+                        {audioError}{' '}
+                        <Button variant="link" className="px-1" onClick={() => (window.location.href = '/profile')}>
+                          Go to Settings
+                        </Button>
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Selected background audio</Label>
+                  {scene.bgAudio ? (
+                    <div className="rounded-md border p-3 space-y-2">
+                      <div className="text-sm font-semibold flex items-center gap-2">
+                        {scene.bgAudio.title}
+                      </div>
+                      <audio controls className="w-full">
+                        <source src={scene.bgAudio.url} type="audio/mpeg" />
+                        {scene.bgAudio.previewUrl && <source src={scene.bgAudio.previewUrl} type="audio/ogg" />}
+                      </audio>
+                      {scene.bgAudio.tags && (
+                        <div className="text-xs text-muted-foreground truncate">Tags: {scene.bgAudio.tags.join(', ')}</div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No background audio selected yet.</p>
+                  )}
+                </div>
+
+                <div className="border-t pt-4 space-y-3">
+                  <Label className="text-sm font-semibold">Search results</Label>
+                  <div className="grid gap-3 md:grid-cols-2">
                   {audioResults.map(result => (
                     <Card key={`audio-${result.id}`}>
                       <CardContent className="p-3 space-y-2">
@@ -485,13 +597,6 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                           <div className="text-xs text-muted-foreground truncate">Tags: {result.tags.join(', ')}</div>
                         )}
                         <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleKeywordUpdate('musicMood', result.tags?.slice(0, 5).join(', ') || result.title)}
-                          >
-                            Use tags
-                          </Button>
                           <Button variant="secondary" size="sm" onClick={() => handleSelectAudioMedia(result)}>
                             Select audio
                           </Button>
@@ -504,23 +609,9 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                       </CardContent>
                     </Card>
                   ))}
+                  </div>
                 </div>
               </CardContent>
-            </Card>
-            <Card>
-                <CardContent className="p-6">
-                    <Label className="font-semibold text-sm">Narration Audio</Label>
-                    <div className="mt-2">
-                      {scene.selectedAudio ? (
-                        <audio controls className="w-full">
-                          <source src={scene.selectedAudio.url} type="audio/mpeg" />
-                          {scene.selectedAudio.previewUrl && <source src={scene.selectedAudio.previewUrl} type="audio/ogg" />}
-                        </audio>
-                      ) : (
-                        <NarrationPreview />
-                      )}
-                    </div>
-                </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
