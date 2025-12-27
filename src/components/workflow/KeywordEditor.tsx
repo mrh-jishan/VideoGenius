@@ -13,9 +13,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 interface KeywordEditorProps {
   scene: Scene;
   onUpdateKeywords: (type: 'musicMood' | 'sfxKeywords', value: string) => void;
+  userId: string;
 }
 
-export default function KeywordEditor({ scene, onUpdateKeywords }: KeywordEditorProps) {
+export default function KeywordEditor({ scene, onUpdateKeywords, userId }: KeywordEditorProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const { toast } = useToast();
@@ -29,6 +30,7 @@ export default function KeywordEditor({ scene, onUpdateKeywords }: KeywordEditor
         sceneDescription: scene.narration,
         existingKeywords: currentKeywords,
         newKeywords: currentKeywords,
+        userId,
       });
       setSuggestions(response.suggestedKeywords);
     } catch (error) {

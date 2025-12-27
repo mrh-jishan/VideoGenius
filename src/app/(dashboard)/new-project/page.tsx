@@ -37,7 +37,7 @@ export default function NewProjectPage() {
     if (!user || !firestore) return;
     setIsLoading(true);
     try {
-      const scenes = await generateScenesAction({ prompt, aspectRatio, duration });
+      const scenes = await generateScenesAction({ prompt, aspectRatio, duration, userId: user.uid });
       if (scenes && scenes.length > 0) {
         const scenesWithIds: Scene[] = scenes.map((scene) => ({
           ...scene,
