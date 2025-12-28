@@ -47,6 +47,9 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [isSuggestingVisual, setIsSuggestingVisual] = useState(false);
+  
+  const [showVisualResults, setShowVisualResults] = useState(true);
+  const [showAudioResults, setShowAudioResults] = useState(true);
 
   const visualSearchTerm = useMemo(() => {
     return visualQuery || scene.visualKeywords || scene.title;
@@ -466,33 +469,49 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                   </Alert>
                 )}
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  {visualResults.map(result => (
-                    <Card key={`${result.type}-${result.id}`} className="overflow-hidden">
-                      <CardContent className="p-3 space-y-2">
-                        {result.type === 'image' ? (
-                          <img src={result.previewUrl || result.url} alt={result.title} className="w-full rounded-md object-cover max-h-48" />
-                        ) : (
-                          <video src={result.url} poster={result.previewUrl} controls className="w-full rounded-md max-h-48" />
-                        )}
-                        <div className="text-sm font-medium truncate">{result.title}</div>
-                        {result.tags && (
-                          <div className="text-xs text-muted-foreground truncate">Tags: {result.tags.join(', ')}</div>
-                        )}
-                        <div className="flex flex-wrap gap-2">
-                          <Button variant="secondary" size="sm" onClick={() => handleSelectNarrationVideo(result)}>
-                            Use for narration
-                          </Button>
-                          <Button variant="ghost" size="icon" asChild>
-                            <a href={result.url} target="_blank" rel="noreferrer">
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                {visualResults.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold">Search Results ({visualResults.length})</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowVisualResults(!showVisualResults)}
+                      >
+                        {showVisualResults ? 'Hide' : 'Show'} Results
+                      </Button>
+                    </div>
+                    {showVisualResults && (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {visualResults.map(result => (
+                          <Card key={`${result.type}-${result.id}`} className="overflow-hidden">
+                            <CardContent className="p-3 space-y-2">
+                              {result.type === 'image' ? (
+                                <img src={result.previewUrl || result.url} alt={result.title} className="w-full rounded-md object-cover max-h-48" />
+                              ) : (
+                                <video src={result.url} poster={result.previewUrl} controls className="w-full rounded-md max-h-48" />
+                              )}
+                              <div className="text-sm font-medium truncate">{result.title}</div>
+                              {result.tags && (
+                                <div className="text-xs text-muted-foreground truncate">Tags: {result.tags.join(', ')}</div>
+                              )}
+                              <div className="flex flex-wrap gap-2">
+                                <Button variant="secondary" size="sm" onClick={() => handleSelectNarrationVideo(result)}>
+                                  Use for narration
+                                </Button>
+                                <Button variant="ghost" size="icon" asChild>
+                                  <a href={result.url} target="_blank" rel="noreferrer">
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -552,38 +571,51 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                   )}
                 </div>
 
-                <div className="border-t pt-4 space-y-3">
-                  <Label className="text-sm font-semibold">Search results</Label>
-                  <div className="grid gap-3 md:grid-cols-2">
-                  {audioResults.map(result => (
-                    <Card key={`audio-${result.id}`}>
-                      <CardContent className="p-3 space-y-2">
-                        <div className="text-sm font-medium truncate">{result.title}</div>
-                        {result.duration && (
-                          <div className="text-xs text-muted-foreground">Duration: {Math.round(result.duration)}s</div>
-                        )}
-                        <audio controls className="w-full">
-                          <source src={result.url} type="audio/mpeg" />
-                          {result.previewUrl && <source src={result.previewUrl} type="audio/ogg" />}
-                        </audio>
-                        {result.tags && (
-                          <div className="text-xs text-muted-foreground truncate">Tags: {result.tags.join(', ')}</div>
-                        )}
-                        <div className="flex flex-wrap gap-2">
-                          <Button variant="secondary" size="sm" onClick={() => handleSelectAudioMedia(result)}>
-                            Select audio
-                          </Button>
-                          <Button variant="ghost" size="icon" asChild>
-                            <a href={result.url} target="_blank" rel="noreferrer">
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                {audioResults.length > 0 && (
+                  <div className="border-t pt-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold">Search Results ({audioResults.length})</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowAudioResults(!showAudioResults)}
+                      >
+                        {showAudioResults ? 'Hide' : 'Show'} Results
+                      </Button>
+                    </div>
+                    {showAudioResults && (
+                      <div className="grid gap-3 md:grid-cols-2">
+                      {audioResults.map(result => (
+                        <Card key={`audio-${result.id}`}>
+                          <CardContent className="p-3 space-y-2">
+                            <div className="text-sm font-medium truncate">{result.title}</div>
+                            {result.duration && (
+                              <div className="text-xs text-muted-foreground">Duration: {Math.round(result.duration)}s</div>
+                            )}
+                            <audio controls className="w-full">
+                              <source src={result.url} type="audio/mpeg" />
+                              {result.previewUrl && <source src={result.previewUrl} type="audio/ogg" />}
+                            </audio>
+                            {result.tags && (
+                              <div className="text-xs text-muted-foreground truncate">Tags: {result.tags.join(', ')}</div>
+                            )}
+                            <div className="flex flex-wrap gap-2">
+                              <Button variant="secondary" size="sm" onClick={() => handleSelectAudioMedia(result)}>
+                                Select audio
+                              </Button>
+                              <Button variant="ghost" size="icon" asChild>
+                                <a href={result.url} target="_blank" rel="noreferrer">
+                                  <ExternalLink className="h-4 w-4" />
+                                </a>
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

@@ -40,11 +40,13 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
   const [globalAudioResults, setGlobalAudioResults] = useState<MediaResult[]>([]);
   const [isGlobalAudioLoading, setIsGlobalAudioLoading] = useState(false);
   const [globalAudioError, setGlobalAudioError] = useState<string | null>(null);
+  const [showGlobalAudioResults, setShowGlobalAudioResults] = useState(true);
 
   const [transitionSoundQuery, setTransitionSoundQuery] = useState<string>('whoosh');
   const [transitionSoundResults, setTransitionSoundResults] = useState<MediaResult[]>([]);
   const [isTransitionSoundLoading, setIsTransitionSoundLoading] = useState(false);
   const [transitionSoundError, setTransitionSoundError] = useState<string | null>(null);
+  const [showTransitionSoundResults, setShowTransitionSoundResults] = useState(true);
 
   const sceneIssues = useMemo(() => {
     return project.scenes.map((scene, idx) => {
@@ -210,26 +212,14 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="global-audio-keywords" className="text-sm font-semibold">Global Audio Keywords</Label>
-              <Input
-                id="global-audio-keywords"
-                value={project.globalAudioKeywords || ''}
-                onChange={(e) => {
-                  onUpdateProjectMeta({ globalAudioKeywords: e.target.value });
-                  setGlobalAudioQuery(e.target.value);
-                }}
-                placeholder="e.g., ambient music, piano, orchestra"
-                className="flex-1"
-              />
-              <p className="text-xs text-muted-foreground">Use simple, generic terms (e.g., "piano", "ambient", "drums") that sound libraries commonly have.</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Search audio</Label>
+              <Label className="text-sm font-semibold">Search global background audio</Label>
               <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
                 <Input
                   value={globalAudioQuery}
-                  onChange={(e) => setGlobalAudioQuery(e.target.value)}
+                  onChange={(e) => {
+                    setGlobalAudioQuery(e.target.value);
+                    onUpdateProjectMeta({ globalAudioKeywords: e.target.value });
+                  }}
                   placeholder="e.g., piano, ambient, nature"
                   className="flex-1"
                 />
@@ -238,6 +228,7 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
                   Search audio
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground">Use simple, generic terms (e.g., "piano", "ambient", "drums") that sound libraries commonly have.</p>
               {globalAudioError && (
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
@@ -270,37 +261,51 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
                 <p className="text-sm text-muted-foreground">No global track selected.</p>
               )}
             </div>
-                <div className="border-t pt-4">
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {globalAudioResults.map(result => (
-                  <ResultCard key={`global-audio-${result.id}`}>
-                    <ResultCardContent className="p-3 space-y-2">
-                      <div className="text-sm font-medium truncate">{result.title}</div>
-                      {result.duration && (
-                        <div className="text-xs text-muted-foreground">Duration: {Math.round(result.duration)}s</div>
-                      )}
-                      <audio controls className="w-full">
-                        <source src={result.url} type="audio/mpeg" />
-                        {result.previewUrl && <source src={result.previewUrl} type="audio/ogg" />}
-                      </audio>
-                      {result.tags && (
-                        <div className="text-xs text-muted-foreground truncate">Tags: {result.tags.join(', ')}</div>
-                      )}
-                      <div className="flex flex-wrap gap-2">
-                        <Button variant="secondary" size="sm" onClick={() => handleSelectGlobalAudio(result)}>
-                          Use as global track
-                        </Button>
-                        <Button variant="ghost" size="icon" asChild>
-                          <a href={result.url} target="_blank" rel="noreferrer">
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </Button>
+                {globalAudioResults.length > 0 && (
+                  <div className="border-t pt-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold">Search Results ({globalAudioResults.length})</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowGlobalAudioResults(!showGlobalAudioResults)}
+                      >
+                        {showGlobalAudioResults ? 'Hide' : 'Show'} Results
+                      </Button>
+                    </div>
+                    {showGlobalAudioResults && (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {globalAudioResults.map(result => (
+                      <ResultCard key={`global-audio-${result.id}`}>
+                        <ResultCardContent className="p-3 space-y-2">
+                          <div className="text-sm font-medium truncate">{result.title}</div>
+                          {result.duration && (
+                            <div className="text-xs text-muted-foreground">Duration: {Math.round(result.duration)}s</div>
+                          )}
+                          <audio controls className="w-full">
+                            <source src={result.url} type="audio/mpeg" />
+                            {result.previewUrl && <source src={result.previewUrl} type="audio/ogg" />}
+                          </audio>
+                          {result.tags && (
+                            <div className="text-xs text-muted-foreground truncate">Tags: {result.tags.join(', ')}</div>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            <Button variant="secondary" size="sm" onClick={() => handleSelectGlobalAudio(result)}>
+                              Use as global track
+                            </Button>
+                            <Button variant="ghost" size="icon" asChild>
+                              <a href={result.url} target="_blank" rel="noreferrer">
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            </Button>
+                          </div>
+                        </ResultCardContent>
+                      </ResultCard>
+                    ))}
                       </div>
-                    </ResultCardContent>
-                  </ResultCard>
-                ))}
+                    )}
                   </div>
-                </div>
+                )}
           </CardContent>
         </Card>
 
@@ -358,36 +363,48 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
             </div>
 
             {transitionSoundResults.length > 0 && (
-              <div className="border-t pt-4">
-                <div className="grid gap-3 md:grid-cols-2">
-                  {transitionSoundResults.map(result => (
-                    <ResultCard key={`transition-sound-${result.id}`}>
-                      <ResultCardContent className="p-3 space-y-2">
-                        <div className="text-sm font-medium truncate">{result.title}</div>
-                        {result.duration && (
-                          <div className="text-xs text-muted-foreground">Duration: {Math.round(result.duration)}s</div>
-                        )}
-                        <audio controls className="w-full">
-                          <source src={result.url} type="audio/mpeg" />
-                          {result.previewUrl && <source src={result.previewUrl} type="audio/ogg" />}
-                        </audio>
-                        {result.tags && (
-                          <div className="text-xs text-muted-foreground truncate">Tags: {result.tags.join(', ')}</div>
-                        )}
-                        <div className="flex flex-wrap gap-2">
-                          <Button variant="secondary" size="sm" onClick={() => handleSelectTransitionSound(result)}>
-                            Use as transition sound
-                          </Button>
-                          <Button variant="ghost" size="icon" asChild>
-                            <a href={result.url} target="_blank" rel="noreferrer">
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        </div>
-                      </ResultCardContent>
-                    </ResultCard>
-                  ))}
+              <div className="border-t pt-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Search Results ({transitionSoundResults.length})</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowTransitionSoundResults(!showTransitionSoundResults)}
+                  >
+                    {showTransitionSoundResults ? 'Hide' : 'Show'} Results
+                  </Button>
                 </div>
+                {showTransitionSoundResults && (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {transitionSoundResults.map(result => (
+                      <ResultCard key={`transition-sound-${result.id}`}>
+                        <ResultCardContent className="p-3 space-y-2">
+                          <div className="text-sm font-medium truncate">{result.title}</div>
+                          {result.duration && (
+                            <div className="text-xs text-muted-foreground">Duration: {Math.round(result.duration)}s</div>
+                          )}
+                          <audio controls className="w-full">
+                            <source src={result.url} type="audio/mpeg" />
+                            {result.previewUrl && <source src={result.previewUrl} type="audio/ogg" />}
+                          </audio>
+                          {result.tags && (
+                            <div className="text-xs text-muted-foreground truncate">Tags: {result.tags.join(', ')}</div>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            <Button variant="secondary" size="sm" onClick={() => handleSelectTransitionSound(result)}>
+                              Use as transition sound
+                            </Button>
+                            <Button variant="ghost" size="icon" asChild>
+                              <a href={result.url} target="_blank" rel="noreferrer">
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            </Button>
+                          </div>
+                        </ResultCardContent>
+                      </ResultCard>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
