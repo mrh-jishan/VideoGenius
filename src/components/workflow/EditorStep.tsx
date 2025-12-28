@@ -4,14 +4,13 @@ import { FileJson, ArrowLeft, Sparkles, Loader2, AlertTriangle, ExternalLink } f
 import type { VideoProject, Scene } from '@/lib/types';
 import type { UserConfig } from '@/lib/actions';
 import type { MediaResult } from '@/lib/actions';
-import { getKeywordSuggestionsAction } from '@/lib/actions';
 import { Accordion } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import SceneCard from './SceneCard';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -33,19 +32,14 @@ interface EditorStepProps {
 
 export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta, onExport, onBackToProjects, userId, userConfig }: EditorStepProps) {
   const { toast } = useToast();
-  const [globalAudioQuery, setGlobalAudioQuery] = useState<string>(project.prompt || '');
+  const seedGlobalKeyword =
+    project.globalBgAudio?.title ||
+    project.scenes[0]?.audioKeywords ||
+    project.prompt;
+  const [globalAudioQuery, setGlobalAudioQuery] = useState<string>(seedGlobalKeyword || '');
   const [globalAudioResults, setGlobalAudioResults] = useState<MediaResult[]>([]);
   const [isGlobalAudioLoading, setIsGlobalAudioLoading] = useState(false);
   const [globalAudioError, setGlobalAudioError] = useState<string | null>(null);
-  const [isSuggestingGlobal, setIsSuggestingGlobal] = useState(false);
-
-  const safeUserConfig = userConfig
-    ? {
-        geminiApiKey: userConfig.geminiApiKey,
-        pixabayKey: userConfig.pixabayKey,
-        freesoundKey: userConfig.freesoundKey,
-      }
-    : undefined;
 
   const sceneIssues = useMemo(() => {
     return project.scenes.map((scene, idx) => {
@@ -100,30 +94,14 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
     toast({ title: 'Global background audio set', description: audio.title });
   };
 
-  const handleSuggestGlobalAudio = async () => {
-    setIsSuggestingGlobal(true);
-    try {
-      const existing = globalAudioQuery.split(',').map((k) => k.trim()).filter(Boolean);
-      const response = await getKeywordSuggestionsAction({
-        sceneDescription: project.prompt,
-        existingKeywords: existing,
-        newKeywords: existing,
-        userId,
-        userConfig: safeUserConfig,
-      });
-      const suggestion = response.suggestedKeywords.join(', ');
-      setGlobalAudioQuery(suggestion);
-      toast({ title: 'Updated global audio keywords', description: 'Using AI-suggested keywords.' });
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Suggestion failed',
-        description: 'Could not fetch keyword suggestions. Check Gemini key in Settings.',
-      });
-    } finally {
-      setIsSuggestingGlobal(false);
+  useEffect(() => {
+    if (project.globalBgAudio || !userConfig?.freesoundKey || globalAudioResults.length > 0 || isGlobalAudioLoading) {
+      return;
     }
-  };
+    // Preload background audio suggestions based on prompt at first load.
+    handleGlobalAudioSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.globalBgAudio, userConfig?.freesoundKey]);
 
   const handleExportClick = () => {
     if (allIssues.length) {
@@ -185,64 +163,51 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
             <CardDescription>Optional track that plays across the full video. Scene-specific background audio still applies per scene.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-[2fr,1fr] md:items-start">
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Search audio</Label>
-                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
-                  <Input
-                    value={globalAudioQuery}
-                    onChange={(e) => setGlobalAudioQuery(e.target.value)}
-                    placeholder="e.g., cinematic, inspiring"
-                    className="flex-1"
-                  />
-                  <div className="flex gap-2">
-                    <Button onClick={handleGlobalAudioSearch} disabled={isGlobalAudioLoading} className="whitespace-nowrap">
-                      {isGlobalAudioLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                      Search audio
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Search audio</Label>
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
+                <Input
+                  value={globalAudioQuery}
+                  onChange={(e) => setGlobalAudioQuery(e.target.value)}
+                  placeholder="e.g., cinematic, inspiring"
+                  className="flex-1"
+                />
+                <Button onClick={handleGlobalAudioSearch} disabled={isGlobalAudioLoading} className="whitespace-nowrap">
+                  {isGlobalAudioLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                  Search audio
+                </Button>
+              </div>
+              {globalAudioError && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription className="text-sm">
+                    {globalAudioError}{' '}
+                    <Button variant="link" className="px-1" onClick={() => (window.location.href = '/profile')}>
+                      Go to Settings
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="whitespace-nowrap"
-                      onClick={handleSuggestGlobalAudio}
-                      disabled={isSuggestingGlobal}
-                    >
-                      {isSuggestingGlobal ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                      AI suggest
-                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Selected global track</Label>
+              {project.globalBgAudio ? (
+                <div className="rounded-md border p-3 space-y-2">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    {project.globalBgAudio.title}
                   </div>
+                  <audio controls className="w-full">
+                    <source src={project.globalBgAudio.url} type="audio/mpeg" />
+                    {project.globalBgAudio.previewUrl && <source src={project.globalBgAudio.previewUrl} type="audio/ogg" />}
+                  </audio>
+                  {project.globalBgAudio.tags && (
+                    <div className="text-xs text-muted-foreground truncate">Tags: {project.globalBgAudio.tags.join(', ')}</div>
+                  )}
                 </div>
-                {globalAudioError && (
-                  <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription className="text-sm">
-                      {globalAudioError}{' '}
-                      <Button variant="link" className="px-1" onClick={() => (window.location.href = '/profile')}>
-                        Go to Settings
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Selected global track</Label>
-                {project.globalBgAudio ? (
-                  <div className="rounded-md border p-3 space-y-2">
-                    <div className="text-sm font-semibold flex items-center gap-2">
-                      {project.globalBgAudio.title}
-                    </div>
-                    <audio controls className="w-full">
-                      <source src={project.globalBgAudio.url} type="audio/mpeg" />
-                      {project.globalBgAudio.previewUrl && <source src={project.globalBgAudio.previewUrl} type="audio/ogg" />}
-                    </audio>
-                    {project.globalBgAudio.tags && (
-                      <div className="text-xs text-muted-foreground truncate">Tags: {project.globalBgAudio.tags.join(', ')}</div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No global track selected.</p>
-                )}
-              </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No global track selected.</p>
+              )}
             </div>
                 <div className="border-t pt-4">
                   <div className="grid gap-3 md:grid-cols-2">

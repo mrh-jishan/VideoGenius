@@ -21,11 +21,10 @@ export type GenerateInitialScenesInput = z.infer<typeof GenerateInitialScenesInp
 
 const SceneSchema = z.object({
   title: z.string().describe('The title of the scene.'),
-  narration: z.string().describe('The narration snippet for the scene.'),
-  visualPrompt: z.string().describe('The visual prompt for image/video generation.'),
+  narration: z.string().describe('The narration script for the scene (used for TTS).'),
   duration: z.number().describe('The duration of the scene in seconds.'),
-  musicMood: z.string().describe('Keywords describing the desired music mood.'),
-  sfxKeywords: z.string().describe('Keywords for scene-specific sound effects.'),
+  visualKeywords: z.string().describe('Comma-separated visual keywords/tags for searching images/videos (e.g., "sunset, beach, ocean waves").'),
+  audioKeywords: z.string().describe('Comma-separated audio keywords for searching background audio (e.g., "cinematic, inspiring, uplifting").'),
 });
 
 const GenerateInitialScenesOutputSchema = z.array(SceneSchema);
@@ -48,12 +47,13 @@ const initialScenesPrompt = ai.definePrompt({
 
   Each scene should include:
   - A title for context
-  - A 2-3 sentence narration snippet
-  - A visual prompt for image/video generation, tailored for a {{aspectRatio}} aspect ratio.
+  - A 2-3 sentence narration script (this will be used for text-to-speech)
   - An estimated duration (in seconds) that contributes to the total video length of {{duration}} seconds.
-  - Music mood keywords (e.g., "inspiring, cinematic, light")
-  - SFX keywords (for scene-specific sound effects, e.g., "wind howling, door opening")
+  - Visual keywords for searching images/videos on Pixabay (comma-separated, e.g., "sunset, beach, ocean waves, nature")
+  - Audio keywords for searching background audio on Freesound (comma-separated, e.g., "cinematic, inspiring, uplifting, ambient")
 
+  Important: Make sure visual keywords are descriptive and specific for the {{aspectRatio}} aspect ratio.
+  
   Return the scenes as a JSON array.
   `,
 });

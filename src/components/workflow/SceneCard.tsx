@@ -37,46 +37,24 @@ interface SceneCardProps {
 export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userConfig, validationErrors = [] }: SceneCardProps) {
   const { toast } = useToast();
   const [visualType, setVisualType] = useState<'video' | 'image'>('video');
-  const [visualQuery, setVisualQuery] = useState(scene.visualPrompt || scene.title);
-  const [visualExtra, setVisualExtra] = useState('');
+  const [visualQuery, setVisualQuery] = useState(scene.visualKeywords || scene.title);
   const [visualResults, setVisualResults] = useState<MediaResult[]>([]);
   const [isLoadingVisual, setIsLoadingVisual] = useState(false);
   const [visualError, setVisualError] = useState<string | null>(null);
 
-  const [audioQuery, setAudioQuery] = useState(scene.musicMood || scene.sfxKeywords || scene.title || scene.narration);
-  const [audioExtra, setAudioExtra] = useState('');
+  const [audioQuery, setAudioQuery] = useState(scene.audioKeywords || scene.title || scene.narration);
   const [audioResults, setAudioResults] = useState<MediaResult[]>([]);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [isSuggestingVisual, setIsSuggestingVisual] = useState(false);
-  const [isSuggestingAudio, setIsSuggestingAudio] = useState(false);
 
   const visualSearchTerm = useMemo(() => {
-    const parts = [
-      visualQuery,
-      visualExtra,
-      scene.visualPrompt,
-      scene.narration,
-      scene.title,
-    ]
-      .filter(Boolean)
-      .join(' ');
-    return parts;
-  }, [visualQuery, visualExtra, scene.visualPrompt, scene.narration, scene.title]);
+    return visualQuery || scene.visualKeywords || scene.title;
+  }, [visualQuery, scene.visualKeywords, scene.title]);
 
   const audioSearchTerm = useMemo(() => {
-    const parts = [
-      audioQuery,
-      audioExtra,
-      scene.musicMood,
-      scene.sfxKeywords,
-      scene.title,
-      scene.visualPrompt,
-    ]
-      .filter(Boolean)
-      .join(' ');
-    return parts;
-  }, [audioQuery, audioExtra, scene.musicMood, scene.sfxKeywords, scene.title, scene.visualPrompt]);
+    return audioQuery || scene.audioKeywords;
+  }, [audioQuery, scene.audioKeywords]);
 
   const safeUserConfig = userConfig
     ? {
@@ -86,29 +64,24 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
       }
     : undefined;
 
-  const suggestKeywords = async (kind: 'visual' | 'audio') => {
-    const setLoading = kind === 'visual' ? setIsSuggestingVisual : setIsSuggestingAudio;
-    setLoading(true);
+  const suggestVisualKeywords = async () => {
+    setIsSuggestingVisual(true);
     try {
-      const existing = (kind === 'visual' ? visualQuery : audioQuery)
+      const existing = visualQuery
         .split(',')
         .map((k) => k.trim())
         .filter(Boolean);
       const response = await getKeywordSuggestionsAction({
-        sceneDescription: scene.narration || scene.visualPrompt || scene.title,
+        sceneDescription: scene.narration || scene.title,
         existingKeywords: existing,
         newKeywords: existing,
         userId,
         userConfig: safeUserConfig,
       });
       const suggestion = response.suggestedKeywords.join(', ');
-      if (kind === 'visual') {
-        setVisualQuery(suggestion);
-        toast({ title: 'Updated visual keywords', description: 'Using AI-suggested keywords.' });
-      } else {
-        setAudioQuery(suggestion);
-        toast({ title: 'Updated audio keywords', description: 'Using AI-suggested keywords.' });
-      }
+      setVisualQuery(suggestion);
+      handleFieldChange('visualKeywords', suggestion);
+      toast({ title: 'Updated visual keywords', description: 'Using AI-suggested keywords.' });
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -116,7 +89,7 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
         description: 'Could not fetch keyword suggestions. Check Gemini key in Settings.',
       });
     } finally {
-      setLoading(false);
+      setIsSuggestingVisual(false);
     }
   };
   const handleFieldChange = (field: keyof Scene, value: string | number) => {
@@ -160,7 +133,7 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
     setIsLoadingVisual(true);
     setVisualError(null);
     try {
-      const safeQuery = (visualSearchTerm || scene.visualPrompt || scene.title || '')
+      const safeQuery = (visualSearchTerm || scene.title || '')
         .split(/[, ]+/)
         .filter(Boolean)
         .slice(0, 10)
@@ -225,7 +198,7 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
     setIsLoadingAudio(true);
     setAudioError(null);
     try {
-      const safeQuery = (audioSearchTerm || scene.musicMood || scene.title || '')
+      const safeQuery = (audioSearchTerm || '')
         .split(/[, ]+/)
         .filter(Boolean)
         .slice(0, 10)
@@ -345,7 +318,7 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                   <AssetSelector
                     selectedAsset={scene.asset}
                     onSelect={handleAssetSelect}
-                    query={[scene.title, scene.visualPrompt, scene.narration].filter(Boolean).join(' ')}
+                    query={[scene.title, scene.visualKeywords, scene.narration].filter(Boolean).join(' ')}
                   />
                 </div>
               </CardContent>
@@ -394,36 +367,17 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor={`visualPrompt-${scene.id}`}>Narration Prompt (also used for TTS)</Label>
-                  <Textarea
-                    id={`visualPrompt-${scene.id}`}
-                    value={scene.visualPrompt}
-                    onChange={(e) => {
-                      handleFieldChange('visualPrompt', e.target.value);
-                      handleFieldChange('narration', e.target.value);
-                    }}
-                    placeholder="e.g., A stunning nebula in deep space..."
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    This prompt drives narration video selection and will be narrated in TTS.
-                  </p>
-                </div>
-
-                <div className="grid gap-2">
                   <Label>Search keywords</Label>
                   <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
-                    <div className="flex flex-col gap-2 sm:flex-row flex-1">
+                    <div className="flex-1">
                       <Input
                         value={visualQuery}
-                        onChange={(e) => setVisualQuery(e.target.value)}
-                        placeholder="Use scene prompt or custom keywords"
-                        className="flex-1"
-                      />
-                      <Input
-                        value={visualExtra}
-                        onChange={(e) => setVisualExtra(e.target.value)}
-                        placeholder="Extra prompt (optional)"
-                        className="flex-1"
+                        onChange={(e) => {
+                          setVisualQuery(e.target.value);
+                          handleFieldChange('visualKeywords', e.target.value);
+                        }}
+                        placeholder="Use scene keywords or customize"
+                        className="w-full"
                       />
                     </div>
                     <div className="flex items-center gap-3 flex-wrap">
@@ -452,7 +406,7 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                         variant="ghost"
                         size="sm"
                         className="whitespace-nowrap"
-                        onClick={() => suggestKeywords('visual')}
+                        onClick={suggestVisualKeywords}
                         disabled={isSuggestingVisual}
                       >
                         {isSuggestingVisual ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wand2 className="h-4 w-4 mr-2" />}
@@ -515,34 +469,19 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                 <div className="space-y-3">
                   <Label className="text-sm font-semibold">Search background audio</Label>
                   <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
-                    <div className="flex flex-col gap-2 sm:flex-row flex-1">
-                      <Input
-                        value={audioQuery}
-                        onChange={(e) => setAudioQuery(e.target.value)}
-                        placeholder="e.g., cinematic, inspiring"
-                        className="flex-1"
-                      />
-                      <Input
-                        value={audioExtra}
-                        onChange={(e) => setAudioExtra(e.target.value)}
-                        placeholder="Extra prompt (optional)"
-                        className="flex-1"
-                      />
-                    </div>
+                    <Input
+                      value={audioQuery}
+                      onChange={(e) => {
+                        setAudioQuery(e.target.value);
+                        handleFieldChange('audioKeywords', e.target.value);
+                      }}
+                      placeholder="e.g., cinematic, inspiring"
+                      className="flex-1"
+                    />
                     <div className="flex gap-2">
                       <Button onClick={handleAudioSearch} disabled={isLoadingAudio} className="whitespace-nowrap">
                         {isLoadingAudio ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
                         Search audio
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="whitespace-nowrap"
-                        onClick={() => suggestKeywords('audio')}
-                        disabled={isSuggestingAudio}
-                      >
-                        {isSuggestingAudio ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wand2 className="h-4 w-4 mr-2" />}
-                        AI suggest
                       </Button>
                     </div>
                   </div>

@@ -38,11 +38,10 @@ type MediaResult = {
 type Scene = {
   id: string;
   title: string;
-  narration: string;
-  visualPrompt: string;
+  narration: string;              // narration script (used for TTS)
   duration: number;
-  musicMood: string;
-  sfxKeywords: string;
+  visualKeywords: string;          // comma-separated keywords for image/video search
+  audioKeywords: string;           // comma-separated keywords for audio search
   asset?: { id: string; description: string; imageUrl: string; imageHint: string };
   selectedVisual?: MediaResult;     // legacy
   transitionVisual?: MediaResult;   // image for transitions
@@ -77,13 +76,16 @@ type VideoProject = {
 1) **New Project** (`/new-project`)
    - Collects prompt, aspect ratio, target duration, desired scene count.
    - Calls `generateScenesAction` (server) using the user’s stored Gemini key to create initial scenes.
+   - AI generates streamlined scenes with `visualKeywords` and `audioKeywords` for efficient media searching.
 2) **Scene Editor** (`/projects/:projectId`)
-   - Transition image: choose from curated assets.
-   - Narration visual: Pixabay image/video search.
-   - Scene background audio: Freesound search.
-   - Global background audio: optional track applied to the whole video.
-   - AI keyword suggestions are available for visuals, audio, and global audio (uses Gemini).
-   - Validation blocks export until each scene has transition visual, narration visual, and scene bg audio.
+   - **Transition image**: choose from 40+ curated high-quality assets.
+   - **Narration visual**: search Pixabay for images/videos using editable `visualKeywords`.
+   - **Scene background audio**: search Freesound using editable `audioKeywords`.
+   - **Global background audio**: optional track applied to the whole video.
+   - **Content editing**: edit scene title, narration (used for TTS), and duration.
+   - **AI keyword suggestions**: available for visual keywords (uses Gemini).
+   - **Keywords are directly editable**: update `visualKeywords` or `audioKeywords` to refine searches.
+   - **Validation**: blocks export until each scene has transition visual, narration visual, and scene bg audio.
 3) **Export**
    - Choose TTS provider/voice/engine/model and add render notes.
    - Export JSON contains scenes, media selections, global audio, and renderOptions.
@@ -117,10 +119,9 @@ type VideoProject = {
       "id": "scene-1",
       "title": "Seeds of Discontent",
       "narration": "For years, ... deep sense of injustice...",
-      "visualPrompt": "A wide, horizontal shot depicting ... historical photo realism.",
       "duration": 8,
-      "musicMood": "Air-Alert, Air-Raid, Alarm",
-      "sfxKeywords": "crowd murmurs, speeches",
+      "visualKeywords": "protest, crowd, historical, revolution",
+      "audioKeywords": "alarm, war, siren, dramatic",
       "transitionVisual": {
         "id": "12",
         "type": "image",
@@ -162,4 +163,12 @@ type VideoProject = {
 - Enforce required scene media: `transitionVisual`, `narrationVideo`, `bgAudio` (editor already validates).
 - If `globalBgAudio` is present, apply across the timeline; otherwise use per-scene `bgAudio`.
 - Use `renderOptions` to pick TTS provider/voice/model; fall back to user defaults if absent.
-- Respect asset URLs: Pixabay video/image and Freesound previews are already the “best available” picked in UI.
+- Respect asset URLs: Pixabay video/image and Freesound previews are already the “best available” picked in UI.- Scene `narration` field contains the text-to-speech script.
+- `visualKeywords` and `audioKeywords` are for reference only (used during media search in the UI).
+
+## Key optimizations (Latest)
+- **Simplified scene schema**: Removed redundant fields (`visualPrompt`, `musicMood`, `sfxKeywords`, `globalAudioKeywords`).
+- **Streamlined keywords**: Single `visualKeywords` for visual search, single `audioKeywords` for audio search.
+- **Direct editing**: Keywords are editable in the UI and immediately used for searches.
+- **Expanded asset library**: 40+ curated transition images (up from 12) covering diverse categories.
+- **Cleaner UX**: Removed confusing "Narration Prompt" and "Extra prompt" fields.
