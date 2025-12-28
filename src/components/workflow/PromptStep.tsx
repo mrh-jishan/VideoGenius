@@ -60,7 +60,7 @@ export default function PromptStep({ onPromptSubmit, isLoading }: PromptStepProp
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="w-full max-w-6xl mx-auto px-4 md:px-6">
       <div className="grid gap-6 md:grid-cols-[2fr,1fr] items-start">
         <div>
           <div className="mb-6">

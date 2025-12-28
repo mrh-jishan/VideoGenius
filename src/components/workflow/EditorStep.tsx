@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import SceneCard from './SceneCard';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -21,6 +21,8 @@ interface EditorStepProps {
   onUpdateScene: (scene: Scene) => void;
   onUpdateProjectMeta: (payload: Partial<VideoProject>) => void;
   onExport: () => void;
+  onDeleteProject?: () => void;
+  isDeletingProject?: boolean;
   onBackToProjects: () => void;
   userId: string;
   userConfig?: UserConfig & {
@@ -30,7 +32,7 @@ interface EditorStepProps {
   };
 }
 
-export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta, onExport, onBackToProjects, userId, userConfig }: EditorStepProps) {
+export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta, onExport, onDeleteProject, isDeletingProject, onBackToProjects, userId, userConfig }: EditorStepProps) {
   const { toast } = useToast();
   const seedGlobalKeyword =
     project.globalBgAudio?.title ||
@@ -141,15 +143,6 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
     onUpdateProjectMeta({ transitionSound: audio });
     toast({ title: 'Transition sound set', description: audio.title });
   };
-
-  useEffect(() => {
-    if (project.globalBgAudio || !userConfig?.freesoundKey || globalAudioResults.length > 0 || isGlobalAudioLoading) {
-      return;
-    }
-    // Preload background audio suggestions based on prompt at first load.
-    handleGlobalAudioSearch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project.globalBgAudio, userConfig?.freesoundKey]);
 
   const handleExportClick = () => {
     if (allIssues.length) {
@@ -410,11 +403,18 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
           </CardContent>
         </Card>
 
-        <div className="flex justify-end">
-        <Button size="lg" onClick={handleExportClick} disabled={allIssues.length > 0}>
-          <FileJson className="mr-2 h-5 w-5" />
-          Finalize & Export JSON
-        </Button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Button
+            variant="destructive"
+            onClick={onDeleteProject}
+            disabled={!onDeleteProject || isDeletingProject}
+          >
+            Delete project
+          </Button>
+          <Button size="lg" onClick={handleExportClick} disabled={allIssues.length > 0}>
+            <FileJson className="mr-2 h-5 w-5" />
+            Finalize & Export JSON
+          </Button>
         </div>
       </div>
 
