@@ -24,6 +24,8 @@ export type VideoProject = {
   targetDurationSeconds?: number;
   desiredSceneCount?: number;
   globalBgAudio?: MediaResult;
+  globalAudioKeywords?: string; // keywords for searching global background audio
+  transitionSound?: MediaResult; // sound effect played during scene transitions
   scenes: Scene[];
   creationDate: string; // ISO string
   lastModified: string; // ISO string

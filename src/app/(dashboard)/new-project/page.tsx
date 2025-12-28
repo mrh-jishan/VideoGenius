@@ -65,11 +65,14 @@ export default function NewProjectPage() {
           id: uuidv4(),
         }));
         
+        // Extract simple global audio keywords from prompt for the entire video
+        // Use first 2-3 words from prompt as simple search terms
+        const globalAudioKeywords = prompt.split(/\s+/).filter(w => w.length > 3).slice(0, 3).join(' ');
+        
         let globalBgAudio: MediaResult | undefined;
         if (userConfig?.freesoundKey) {
           try {
-            const firstScene = scenesWithIds[0];
-            const seed = firstScene?.audioKeywords || prompt;
+            const seed = globalAudioKeywords || 'music';
             const safeQuery = (seed || '')
               .split(/[, ]+/)
               .filter(Boolean)
@@ -109,6 +112,7 @@ export default function NewProjectPage() {
           aspectRatio,
           targetDurationSeconds: duration,
           desiredSceneCount: sceneCount,
+          globalAudioKeywords,
           ...(globalBgAudio ? { globalBgAudio } : {}),
           creationDate: new Date().toISOString(),
           lastModified: new Date().toISOString(),

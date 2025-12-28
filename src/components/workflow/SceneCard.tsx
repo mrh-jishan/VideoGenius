@@ -314,6 +314,41 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
             <Card>
               <CardContent className="p-4 space-y-4">
                 <div className="grid gap-2">
+                  <Label htmlFor={`transition-type-${scene.id}`}>Transition Type</Label>
+                  <select
+                    id={`transition-type-${scene.id}`}
+                    value={scene.transitionType || 'fade'}
+                    onChange={(e) => handleFieldChange('transitionType', e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="fade">Fade</option>
+                    <option value="slide">Slide</option>
+                    <option value="zoom">Zoom</option>
+                    <option value="wipe">Wipe</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    Choose the transition effect when moving to this scene.
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor={`subtitle-transition-${scene.id}`}>Subtitle Transition</Label>
+                  <select
+                    id={`subtitle-transition-${scene.id}`}
+                    value={scene.subtitleTransition || 'fade'}
+                    onChange={(e) => handleFieldChange('subtitleTransition', e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="fade">Fade</option>
+                    <option value="slide">Slide</option>
+                    <option value="none">None</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    How subtitles appear in this scene.
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
                   <Label>Transition Image (Asset Library)</Label>
                   <AssetSelector
                     selectedAsset={scene.asset}
@@ -475,7 +510,7 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                         setAudioQuery(e.target.value);
                         handleFieldChange('audioKeywords', e.target.value);
                       }}
-                      placeholder="e.g., cinematic, inspiring"
+                      placeholder="e.g., piano, ambient, drums"
                       className="flex-1"
                     />
                     <div className="flex gap-2">

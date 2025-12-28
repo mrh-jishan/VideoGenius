@@ -24,7 +24,9 @@ const SceneSchema = z.object({
   narration: z.string().describe('The narration script for the scene (used for TTS).'),
   duration: z.number().describe('The duration of the scene in seconds.'),
   visualKeywords: z.string().describe('Comma-separated visual keywords/tags for searching images/videos (e.g., "sunset, beach, ocean waves").'),
-  audioKeywords: z.string().describe('Comma-separated audio keywords for searching background audio (e.g., "cinematic, inspiring, uplifting").'),
+  audioKeywords: z.string().describe('Short, simple audio search keywords - max 3-4 basic terms (e.g., "piano", "ambient music", "nature sounds", "drums").'),
+  transitionType: z.enum(['fade', 'slide', 'zoom', 'wipe']).default('fade').describe('The transition effect to use when moving to this scene.'),
+  subtitleTransition: z.enum(['fade', 'slide', 'none']).default('fade').describe('How subtitles transition in this scene.'),
 });
 
 const GenerateInitialScenesOutputSchema = z.array(SceneSchema);
@@ -50,9 +52,12 @@ const initialScenesPrompt = ai.definePrompt({
   - A 2-3 sentence narration script (this will be used for text-to-speech)
   - An estimated duration (in seconds) that contributes to the total video length of {{duration}} seconds.
   - Visual keywords for searching images/videos on Pixabay (comma-separated, e.g., "sunset, beach, ocean waves, nature")
-  - Audio keywords for searching background audio on Freesound (comma-separated, e.g., "cinematic, inspiring, uplifting, ambient")
+  - Audio keywords for searching scene-specific background audio on Freesound (use SIMPLE, GENERIC terms that are common in sound libraries - max 3-4 words, e.g., "ambient music", "nature sounds", "piano", "drums beat", "wind", "rain")
+  - Transition type: choose from "fade", "slide", "zoom", or "wipe" - vary the transitions to keep the video dynamic
+  - Subtitle transition: choose from "fade", "slide", or "none" - vary to match the scene's mood
 
   Important: Make sure visual keywords are descriptive and specific for the {{aspectRatio}} aspect ratio.
+  Important: Audio keywords must be SHORT and SIMPLE - use basic sound/music terms that any sound library would have (e.g., "piano", "guitar", "ambient", "drums", "nature", "rain", "wind"). Avoid complex or overly specific phrases.
   
   Return the scenes as a JSON array.
   `,

@@ -41,7 +41,9 @@ type Scene = {
   narration: string;              // narration script (used for TTS)
   duration: number;
   visualKeywords: string;          // comma-separated keywords for image/video search
-  audioKeywords: string;           // comma-separated keywords for audio search
+  audioKeywords: string;           // short, simple keywords for audio search (e.g., "piano", "ambient", "drums")
+  transitionType: 'fade' | 'slide' | 'zoom' | 'wipe'; // transition effect for this scene
+  subtitleTransition: 'fade' | 'slide' | 'none'; // subtitle transition style for this scene
   asset?: { id: string; description: string; imageUrl: string; imageHint: string };
   selectedVisual?: MediaResult;     // legacy
   transitionVisual?: MediaResult;   // image for transitions
@@ -59,6 +61,8 @@ type VideoProject = {
   targetDurationSeconds?: number;
   desiredSceneCount?: number;
   globalBgAudio?: MediaResult;      // optional track across the whole video
+  globalAudioKeywords?: string;     // simple keywords for searching global audio (e.g., "piano", "ambient music")
+  transitionSound?: MediaResult;    // sound effect played during all scene transitions
   scenes: Scene[];
   creationDate: string;             // ISO
   lastModified: string;             // ISO
@@ -76,15 +80,15 @@ type VideoProject = {
 1) **New Project** (`/new-project`)
    - Collects prompt, aspect ratio, target duration, desired scene count.
    - Calls `generateScenesAction` (server) using the user’s stored Gemini key to create initial scenes.
-   - AI generates streamlined scenes with `visualKeywords` and `audioKeywords` for efficient media searching.
+   - AI generates streamlined scenes with `visualKeywords`, `audioKeywords`, and `globalAudioKeywords`.
 2) **Scene Editor** (`/projects/:projectId`)
    - **Transition image**: choose from 40+ curated high-quality assets.
    - **Narration visual**: search Pixabay for images/videos using editable `visualKeywords`.
    - **Scene background audio**: search Freesound using editable `audioKeywords`.
-   - **Global background audio**: optional track applied to the whole video.
+   - **Global background audio**: search using `globalAudioKeywords` - optional track applied to the whole video.
    - **Content editing**: edit scene title, narration (used for TTS), and duration.
    - **AI keyword suggestions**: available for visual keywords (uses Gemini).
-   - **Keywords are directly editable**: update `visualKeywords` or `audioKeywords` to refine searches.
+   - **Keywords are directly editable**: update `visualKeywords`, `audioKeywords`, or `globalAudioKeywords` to refine searches.
    - **Validation**: blocks export until each scene has transition visual, narration visual, and scene bg audio.
 3) **Export**
    - Choose TTS provider/voice/engine/model and add render notes.
@@ -105,6 +109,7 @@ type VideoProject = {
   "aspectRatio": "horizontal",
   "targetDurationSeconds": 90,
   "desiredSceneCount": 6,
+  "globalAudioKeywords": "ambient music",
   "globalBgAudio": {
     "id": "784221",
     "type": "audio",
@@ -121,7 +126,9 @@ type VideoProject = {
       "narration": "For years, ... deep sense of injustice...",
       "duration": 8,
       "visualKeywords": "protest, crowd, historical, revolution",
-      "audioKeywords": "alarm, war, siren, dramatic",
+      "audioKeywords": "drums, percussion",
+      "transitionType": "fade",
+      "subtitleTransition": "fade",
       "transitionVisual": {
         "id": "12",
         "type": "image",
@@ -163,12 +170,20 @@ type VideoProject = {
 - Enforce required scene media: `transitionVisual`, `narrationVideo`, `bgAudio` (editor already validates).
 - If `globalBgAudio` is present, apply across the timeline; otherwise use per-scene `bgAudio`.
 - Use `renderOptions` to pick TTS provider/voice/model; fall back to user defaults if absent.
-- Respect asset URLs: Pixabay video/image and Freesound previews are already the “best available” picked in UI.- Scene `narration` field contains the text-to-speech script.
-- `visualKeywords` and `audioKeywords` are for reference only (used during media search in the UI).
+- Respect asset URLs: Pixabay video/image and Freesound previews are already the "best available" picked in UI.
+- Scene `narration` field contains the text-to-speech script.
+- Each scene has a `transitionType` (fade/slide/zoom/wipe) - apply the appropriate transition effect.
+- Each scene has a `subtitleTransition` (fade/slide/none) - apply the appropriate subtitle animation.
+- If `transitionSound` exists at project level, play it during all scene transitions.
+- `visualKeywords`, `audioKeywords`, and `globalAudioKeywords` are for reference only (used during media search in the UI).
+- `audioKeywords` uses simple, generic terms optimized for Freesound searches (e.g., "piano", "ambient", "drums", "nature").
+- `globalAudioKeywords` is at the project level and uses simple terms for finding background music.
 
 ## Key optimizations (Latest)
-- **Simplified scene schema**: Removed redundant fields (`visualPrompt`, `musicMood`, `sfxKeywords`, `globalAudioKeywords`).
-- **Streamlined keywords**: Single `visualKeywords` for visual search, single `audioKeywords` for audio search.
+- **Simplified scene schema**: Removed redundant fields (`visualPrompt`, `musicMood`, `sfxKeywords`).
+- **Streamlined keywords**: `visualKeywords` for visual search, `audioKeywords` for scene audio, and project-level `globalAudioKeywords` for global background audio.
+- **Transition controls**: Each scene has customizable `transitionType` (fade/slide/zoom/wipe) and `subtitleTransition` (fade/slide/none).
+- **Transition sound**: Optional global sound effect that plays during all scene transitions.
 - **Direct editing**: Keywords are editable in the UI and immediately used for searches.
 - **Expanded asset library**: 40+ curated transition images (up from 12) covering diverse categories.
 - **Cleaner UX**: Removed confusing "Narration Prompt" and "Extra prompt" fields.

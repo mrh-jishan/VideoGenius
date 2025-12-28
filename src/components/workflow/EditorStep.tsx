@@ -34,12 +34,17 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
   const { toast } = useToast();
   const seedGlobalKeyword =
     project.globalBgAudio?.title ||
-    project.scenes[0]?.audioKeywords ||
+    project.globalAudioKeywords ||
     project.prompt;
   const [globalAudioQuery, setGlobalAudioQuery] = useState<string>(seedGlobalKeyword || '');
   const [globalAudioResults, setGlobalAudioResults] = useState<MediaResult[]>([]);
   const [isGlobalAudioLoading, setIsGlobalAudioLoading] = useState(false);
   const [globalAudioError, setGlobalAudioError] = useState<string | null>(null);
+
+  const [transitionSoundQuery, setTransitionSoundQuery] = useState<string>('whoosh');
+  const [transitionSoundResults, setTransitionSoundResults] = useState<MediaResult[]>([]);
+  const [isTransitionSoundLoading, setIsTransitionSoundLoading] = useState(false);
+  const [transitionSoundError, setTransitionSoundError] = useState<string | null>(null);
 
   const sceneIssues = useMemo(() => {
     return project.scenes.map((scene, idx) => {
@@ -92,6 +97,47 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
   const handleSelectGlobalAudio = (audio: MediaResult) => {
     onUpdateProjectMeta({ globalBgAudio: audio });
     toast({ title: 'Global background audio set', description: audio.title });
+  };
+
+  const handleTransitionSoundSearch = async () => {
+    if (!userConfig?.freesoundKey) {
+      setTransitionSoundError('Freesound API key missing. Save it in Settings.');
+      return;
+    }
+    setIsTransitionSoundLoading(true);
+    setTransitionSoundError(null);
+    try {
+      const safeQuery = (transitionSoundQuery || 'whoosh').split(/[, ]+/).filter(Boolean).slice(0, 5).join(' ').slice(0, 100);
+      const endpoint = `https://freesound.org/apiv2/search/text/?query=${encodeURIComponent(
+        safeQuery
+      )}&fields=id,name,previews,duration,tags&token=${userConfig.freesoundKey}&page_size=10`;
+      const res = await fetch(endpoint);
+      if (!res.ok) throw new Error('Failed to fetch transition sounds.');
+      const data = await res.json();
+      const mapped: MediaResult[] = (data.results || []).map((hit: any) => ({
+        id: String(hit.id),
+        type: 'audio',
+        title: hit.name || 'Freesound Audio',
+        url: hit.previews?.['preview-hq-mp3'] || hit.previews?.['preview-lq-mp3'],
+        previewUrl: hit.previews?.['preview-hq-ogg'] || hit.previews?.['preview-lq-ogg'],
+        duration: hit.duration,
+        tags: hit.tags || [],
+      }));
+      setTransitionSoundResults(mapped);
+      if (!mapped.length) {
+        toast({ title: 'No transition sounds found', description: 'Try different keywords.', variant: 'destructive' });
+      }
+    } catch (error) {
+      console.error(error);
+      setTransitionSoundError(error instanceof Error ? error.message : 'Failed to fetch transition sounds.');
+    } finally {
+      setIsTransitionSoundLoading(false);
+    }
+  };
+
+  const handleSelectTransitionSound = (audio: MediaResult) => {
+    onUpdateProjectMeta({ transitionSound: audio });
+    toast({ title: 'Transition sound set', description: audio.title });
   };
 
   useEffect(() => {
@@ -164,12 +210,27 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="global-audio-keywords" className="text-sm font-semibold">Global Audio Keywords</Label>
+              <Input
+                id="global-audio-keywords"
+                value={project.globalAudioKeywords || ''}
+                onChange={(e) => {
+                  onUpdateProjectMeta({ globalAudioKeywords: e.target.value });
+                  setGlobalAudioQuery(e.target.value);
+                }}
+                placeholder="e.g., ambient music, piano, orchestra"
+                className="flex-1"
+              />
+              <p className="text-xs text-muted-foreground">Use simple, generic terms (e.g., "piano", "ambient", "drums") that sound libraries commonly have.</p>
+            </div>
+
+            <div className="space-y-2">
               <Label className="text-sm font-semibold">Search audio</Label>
               <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
                 <Input
                   value={globalAudioQuery}
                   onChange={(e) => setGlobalAudioQuery(e.target.value)}
-                  placeholder="e.g., cinematic, inspiring"
+                  placeholder="e.g., piano, ambient, nature"
                   className="flex-1"
                 />
                 <Button onClick={handleGlobalAudioSearch} disabled={isGlobalAudioLoading} className="whitespace-nowrap">
@@ -242,6 +303,96 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
                 </div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-headline">Transition Sound Effect</CardTitle>
+            <CardDescription>Optional sound effect that plays during scene transitions (e.g., whoosh, swipe).</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Search transition sounds</Label>
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
+                <Input
+                  value={transitionSoundQuery}
+                  onChange={(e) => setTransitionSoundQuery(e.target.value)}
+                  placeholder="e.g., whoosh, swipe, swoosh"
+                  className="flex-1"
+                />
+                <Button onClick={handleTransitionSoundSearch} disabled={isTransitionSoundLoading} className="whitespace-nowrap">
+                  {isTransitionSoundLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                  Search sounds
+                </Button>
+              </div>
+              {transitionSoundError && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription className="text-sm">
+                    {transitionSoundError}{' '}
+                    <Button variant="link" className="px-1" onClick={() => (window.location.href = '/profile')}>
+                      Go to Settings
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Selected transition sound</Label>
+              {project.transitionSound ? (
+                <div className="rounded-md border p-3 space-y-2">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    {project.transitionSound.title}
+                  </div>
+                  <audio controls className="w-full">
+                    <source src={project.transitionSound.url} type="audio/mpeg" />
+                    {project.transitionSound.previewUrl && <source src={project.transitionSound.previewUrl} type="audio/ogg" />}
+                  </audio>
+                  {project.transitionSound.tags && (
+                    <div className="text-xs text-muted-foreground truncate">Tags: {project.transitionSound.tags.join(', ')}</div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No transition sound selected.</p>
+              )}
+            </div>
+
+            {transitionSoundResults.length > 0 && (
+              <div className="border-t pt-4">
+                <div className="grid gap-3 md:grid-cols-2">
+                  {transitionSoundResults.map(result => (
+                    <ResultCard key={`transition-sound-${result.id}`}>
+                      <ResultCardContent className="p-3 space-y-2">
+                        <div className="text-sm font-medium truncate">{result.title}</div>
+                        {result.duration && (
+                          <div className="text-xs text-muted-foreground">Duration: {Math.round(result.duration)}s</div>
+                        )}
+                        <audio controls className="w-full">
+                          <source src={result.url} type="audio/mpeg" />
+                          {result.previewUrl && <source src={result.previewUrl} type="audio/ogg" />}
+                        </audio>
+                        {result.tags && (
+                          <div className="text-xs text-muted-foreground truncate">Tags: {result.tags.join(', ')}</div>
+                        )}
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="secondary" size="sm" onClick={() => handleSelectTransitionSound(result)}>
+                            Use as transition sound
+                          </Button>
+                          <Button variant="ghost" size="icon" asChild>
+                            <a href={result.url} target="_blank" rel="noreferrer">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        </div>
+                      </ResultCardContent>
+                    </ResultCard>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="flex justify-end">
         <Button size="lg" onClick={handleExportClick} disabled={allIssues.length > 0}>
           <FileJson className="mr-2 h-5 w-5" />
