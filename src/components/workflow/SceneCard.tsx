@@ -306,6 +306,22 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                     className="min-h-24"
                   />
                 </div>
+                <div className="grid gap-2">
+                  <Label htmlFor={`subtitle-transition-${scene.id}`}>Subtitle Transition</Label>
+                  <select
+                    id={`subtitle-transition-${scene.id}`}
+                    value={scene.subtitleTransition || 'fade'}
+                    onChange={(e) => handleFieldChange('subtitleTransition', e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="fade">Fade</option>
+                    <option value="slide">Slide</option>
+                    <option value="none">None</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    How subtitles appear in this scene.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -328,23 +344,6 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                   </select>
                   <p className="text-xs text-muted-foreground">
                     Choose the transition effect when moving to this scene.
-                  </p>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor={`subtitle-transition-${scene.id}`}>Subtitle Transition</Label>
-                  <select
-                    id={`subtitle-transition-${scene.id}`}
-                    value={scene.subtitleTransition || 'fade'}
-                    onChange={(e) => handleFieldChange('subtitleTransition', e.target.value)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <option value="fade">Fade</option>
-                    <option value="slide">Slide</option>
-                    <option value="none">None</option>
-                  </select>
-                  <p className="text-xs text-muted-foreground">
-                    How subtitles appear in this scene.
                   </p>
                 </div>
 
