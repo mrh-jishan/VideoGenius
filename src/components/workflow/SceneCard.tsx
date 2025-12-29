@@ -1,6 +1,6 @@
 'use client';
 
-import { GripVertical, Image as ImageIcon, Music, Type, Timer, Video, Image, Sparkles, Loader2, AlertTriangle, ExternalLink, Wand2 } from 'lucide-react';
+import { GripVertical, Image as ImageIcon, Music, Type, Timer, Video, Image, Sparkles, Loader2, AlertTriangle, ExternalLink, Wand2, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Scene } from '@/lib/types';
 import type { ImagePlaceholder } from '@/lib/placeholder-images';
 import {
@@ -32,9 +32,11 @@ interface SceneCardProps {
   userId: string;
   userConfig?: UserConfig;
   validationErrors?: string[];
+  totalScenes: number;
+  onNavigateToScene: (sceneNumber: number) => void;
 }
 
-export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userConfig, validationErrors = [] }: SceneCardProps) {
+export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userConfig, validationErrors = [], totalScenes, onNavigateToScene }: SceneCardProps) {
   const { toast } = useToast();
   const [visualType, setVisualType] = useState<'video' | 'image'>('video');
   const [visualQuery, setVisualQuery] = useState(scene.visualKeywords || scene.title);
@@ -256,6 +258,34 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
           <div className="flex items-center gap-1 text-xs text-muted-foreground font-normal bg-muted px-2 py-1 rounded-md">
             <Timer className="h-3 w-3" />
             <span>{scene.duration}s</span>
+          </div>
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              disabled={sceneNumber === 1}
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigateToScene(sceneNumber - 1);
+              }}
+              title="Previous scene"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              disabled={sceneNumber === totalScenes}
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigateToScene(sceneNumber + 1);
+              }}
+              title="Next scene"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </AccordionTrigger>

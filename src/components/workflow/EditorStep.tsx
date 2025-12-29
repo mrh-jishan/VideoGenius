@@ -49,6 +49,9 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
   const [isTransitionSoundLoading, setIsTransitionSoundLoading] = useState(false);
   const [transitionSoundError, setTransitionSoundError] = useState<string | null>(null);
   const [showTransitionSoundResults, setShowTransitionSoundResults] = useState(true);
+  const [activeSceneValue, setActiveSceneValue] = useState<string | undefined>(
+    project.scenes.length > 0 ? `item-${project.scenes[0].id}` : undefined
+  );
 
   const sceneIssues = useMemo(() => {
     return project.scenes.map((scene, idx) => {
@@ -59,6 +62,14 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
       return { id: scene.id, label: `Scene ${idx + 1}`, messages };
     });
   }, [project.scenes]);
+
+  const handleNavigateToScene = (sceneNumber: number) => {
+    if (sceneNumber < 1 || sceneNumber > project.scenes.length) return;
+    const targetScene = project.scenes[sceneNumber - 1];
+    if (targetScene) {
+      setActiveSceneValue(`item-${targetScene.id}`);
+    }
+  };
 
   const allIssues = sceneIssues.flatMap(s => s.messages.length ? [`${s.label}: ${s.messages.join(', ')}`] : []);
 
@@ -180,7 +191,13 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
       
       <div>
         <h2 className="text-2xl font-bold mb-4 font-headline">Scene Editor</h2>
-        <Accordion type="single" collapsible className="w-full space-y-4" defaultValue={project.scenes.length > 0 ? `item-${project.scenes[0].id}`: undefined}>
+        <Accordion 
+          type="single" 
+          collapsible 
+          className="w-full space-y-4" 
+          value={activeSceneValue}
+          onValueChange={setActiveSceneValue}
+        >
           {project.scenes.map((scene, index) => {
             const validation = sceneIssues.find((s) => s.id === scene.id);
             return (
@@ -192,6 +209,8 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
               userId={userId}
               userConfig={userConfig}
               validationErrors={validation?.messages || []}
+              totalScenes={project.scenes.length}
+              onNavigateToScene={handleNavigateToScene}
             />
           )})}
         </Accordion>
