@@ -110,6 +110,7 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
   const handleSelectGlobalAudio = (audio: MediaResult) => {
     onUpdateProjectMeta({ globalBgAudio: audio });
     toast({ title: 'Global background audio set', description: audio.title });
+    setShowGlobalAudioResults(false);
   };
 
   const handleTransitionSoundSearch = async () => {
@@ -151,6 +152,7 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
   const handleSelectTransitionSound = (audio: MediaResult) => {
     onUpdateProjectMeta({ transitionSound: audio });
     toast({ title: 'Transition sound set', description: audio.title });
+    setShowTransitionSoundResults(false);
   };
 
   const handleExportClick = () => {

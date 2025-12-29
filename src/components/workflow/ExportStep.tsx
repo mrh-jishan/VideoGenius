@@ -32,7 +32,7 @@ interface ExportStepProps {
 export default function ExportStep({ project, onStartOver, userConfig }: ExportStepProps) {
   const [hasCopied, setHasCopied] = useState(false);
   const [ttsProvider, setTtsProvider] = useState<'gTTS' | 'AmazonPolly'>(userConfig?.ttsProvider || 'gTTS');
-  const [voiceId, setVoiceId] = useState<string>(userConfig?.pollyVoice || 'Ruth');
+  const [voiceId, setVoiceId] = useState<string>(userConfig?.pollyVoice || 'Emma');
   const [engine, setEngine] = useState<string>(userConfig?.pollyEngine || 'generative');
   const [model, setModel] = useState<string>(userConfig?.geminiTextModel || 'gemini-2.5-flash');
   const [notes, setNotes] = useState<string>('');

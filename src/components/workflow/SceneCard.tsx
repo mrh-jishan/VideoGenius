@@ -81,14 +81,17 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
 
   const handleSelectTransitionVisual = (media: MediaResult) => {
     onUpdate({ ...scene, selectedVisual: media, transitionVisual: media, asset: undefined });
+    setShowVisualResults(false);
   };
 
   const handleSelectNarrationVideo = (media: MediaResult) => {
     onUpdate({ ...scene, narrationVideo: media });
+    setShowVisualResults(false);
   };
 
   const handleSelectAudioMedia = (media: MediaResult) => {
     onUpdate({ ...scene, selectedAudio: media, bgAudio: media });
+    setShowAudioResults(false);
   };
 
   const handleVisualSearch = async () => {
@@ -342,6 +345,7 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                     selectedAsset={scene.asset}
                     onSelect={handleAssetSelect}
                     query={[scene.title, scene.visualKeywords, scene.narration].filter(Boolean).join(' ')}
+                    userConfig={userConfig}
                   />
                 </div>
               </CardContent>

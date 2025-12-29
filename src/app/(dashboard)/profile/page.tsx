@@ -21,6 +21,7 @@ import { AlertTriangle } from 'lucide-react';
 const profileFormSchema = z.object({
   geminiApiKey: z.string().min(1, 'Google API Key is required'),
   pixabayKey: z.string().optional(),
+  unsplashKey: z.string().optional(),
   freesoundKey: z.string().optional(),
   geminiTextModel: z.string().optional(),
   geminiImageModel: z.string().optional(),
@@ -65,11 +66,12 @@ export default function ProfilePage() {
     defaultValues: {
       geminiApiKey: '',
       pixabayKey: '',
+      unsplashKey: '',
       freesoundKey: '',
       geminiTextModel: 'gemini-2.5-flash',
       geminiImageModel: 'gemini-2.5-flash-image',
       ttsProvider: 'gTTS',
-      pollyVoice: 'Ruth',
+      pollyVoice: 'Emma',
       pollyEngine: 'generative',
       awsAccessKeyId: '',
       awsSecretAccessKey: '',
@@ -104,11 +106,12 @@ export default function ProfilePage() {
       form.reset({
         geminiApiKey: userProfile.geminiApiKey || '',
         pixabayKey: userProfile.pixabayKey || '',
+        unsplashKey: userProfile.unsplashKey || '',
         freesoundKey: userProfile.freesoundKey || '',
         geminiTextModel: userProfile.geminiTextModel || 'gemini-2.5-flash',
         geminiImageModel: userProfile.geminiImageModel || 'gemini-2.5-flash-image',
         ttsProvider: userProfile.ttsProvider || 'gTTS',
-        pollyVoice: userProfile.pollyVoice || 'Ruth',
+        pollyVoice: userProfile.pollyVoice || 'Emma',
         pollyEngine: userProfile.pollyEngine || 'generative',
         awsAccessKeyId: userProfile.awsAccessKeyId || '',
         awsSecretAccessKey: userProfile.awsSecretAccessKey || '',
@@ -219,6 +222,20 @@ export default function ProfilePage() {
                       <FormItem>
                         <FormLabel>Freesound API Key</FormLabel>
                         <FormDescription>Fetch background music and sound effects.</FormDescription>
+                        <FormControl>
+                          <Input type="password" placeholder="Optional" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="unsplashKey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Unsplash Access Key</FormLabel>
+                        <FormDescription>Search high-quality stock images from Unsplash in the asset selector.</FormDescription>
                         <FormControl>
                           <Input type="password" placeholder="Optional" {...field} />
                         </FormControl>
@@ -430,7 +447,7 @@ export default function ProfilePage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Rendering Backend API Key</FormLabel>
-                          <FormDescription>Optional: Sent as `Authorization: Bearer <key>` header.</FormDescription>
+                          <FormDescription>Optional: Sent as Authorization Bearer token header.</FormDescription>
                           <FormControl>
                             <Input type="password" placeholder="Optional API key" {...field} />
                           </FormControl>

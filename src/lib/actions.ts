@@ -5,17 +5,13 @@ import {
   GenerateInitialScenesInput,
   GenerateInitialScenesOutput,
 } from '@/ai/flows/generate-initial-scenes';
-import {
-  modifyKeywordsWithSuggestions,
-  ModifyKeywordsInput,
-  ModifyKeywordsOutput,
-} from '@/ai/flows/modify-keywords-with-suggestions';
 import { getServerFirestore } from '@/firebase/server';
 import { doc, getDoc } from 'firebase/firestore';
 
 export type UserConfig = {
   geminiApiKey?: string;
   pixabayKey?: string;
+  unsplashKey?: string;
   freesoundKey?: string;
 };
 
