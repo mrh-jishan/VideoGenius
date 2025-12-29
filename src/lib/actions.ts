@@ -71,7 +71,7 @@ export async function generateScenesAction(
   }
 
   try {
-    const scenes = await generateInitialScenes(sceneInput, geminiApiKey);
+    const scenes = await generateInitialScenes(sceneInput);
     return scenes;
   } catch (error) {
     const message =
@@ -80,36 +80,6 @@ export async function generateScenesAction(
         : 'Failed to generate scenes due to a server error.';
     console.error('Error in generateInitialScenes flow:', error);
     throw new Error(message);
-  }
-}
-
-/**
- * Server action to get alternative keyword suggestions.
- * @param input The input containing scene details and new keywords.
- * @returns A promise that resolves to the suggested keywords.
- */
-export async function getKeywordSuggestionsAction(
-  input: ModifyKeywordsInput & { userId: string; userConfig?: UserConfig }
-): Promise<ModifyKeywordsOutput> {
-  const { userId, userConfig, ...suggestionInput } = input;
-  let geminiApiKey = userConfig?.geminiApiKey;
-  if (!geminiApiKey) {
-    try {
-      geminiApiKey = (await getUserConfig(userId)).geminiApiKey;
-    } catch (err) {
-      console.error('Failed to load user config for Gemini key', err);
-    }
-  }
-  if (!geminiApiKey) {
-    throw new Error('Gemini API key missing. Save your key in Settings.');
-  }
-
-  try {
-    const result = await modifyKeywordsWithSuggestions(suggestionInput, geminiApiKey);
-    return result;
-  } catch (error) {
-    console.error('Error in modifyKeywordsWithSuggestions flow:', error);
-    throw new Error('Failed to get keyword suggestions due to a server error.');
   }
 }
 

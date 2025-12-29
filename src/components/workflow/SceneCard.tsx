@@ -19,7 +19,6 @@ import NextImage from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { MediaResult, UserConfig } from '@/lib/actions';
-import { getKeywordSuggestionsAction } from '@/lib/actions';
 import { useState, useMemo, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Input as CTAInput } from '@/components/ui/input';
@@ -48,7 +47,6 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
   const [audioResults, setAudioResults] = useState<MediaResult[]>([]);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
-  const [isSuggestingVisual, setIsSuggestingVisual] = useState(false);
   
   const [showVisualResults, setShowVisualResults] = useState(true);
   const [showAudioResults, setShowAudioResults] = useState(true);
@@ -61,42 +59,6 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
     return audioQuery || scene.audioKeywords;
   }, [audioQuery, scene.audioKeywords]);
 
-  const safeUserConfig = userConfig
-    ? {
-        geminiApiKey: userConfig.geminiApiKey,
-        pixabayKey: userConfig.pixabayKey,
-        freesoundKey: userConfig.freesoundKey,
-      }
-    : undefined;
-
-  const suggestVisualKeywords = async () => {
-    setIsSuggestingVisual(true);
-    try {
-      const existing = visualQuery
-        .split(',')
-        .map((k) => k.trim())
-        .filter(Boolean);
-      const response = await getKeywordSuggestionsAction({
-        sceneDescription: scene.narration || scene.title,
-        existingKeywords: existing,
-        newKeywords: existing,
-        userId,
-        userConfig: safeUserConfig,
-      });
-      const suggestion = response.suggestedKeywords.join(', ');
-      setVisualQuery(suggestion);
-      handleFieldChange('visualKeywords', suggestion);
-      toast({ title: 'Updated visual keywords', description: 'Using AI-suggested keywords.' });
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Suggestion failed',
-        description: 'Could not fetch keyword suggestions. Check Gemini key in Settings.',
-      });
-    } finally {
-      setIsSuggestingVisual(false);
-    }
-  };
   const handleFieldChange = (field: keyof Scene, value: string | number) => {
     onUpdate({ ...scene, [field]: value });
   };
@@ -259,37 +221,31 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
             <Timer className="h-3 w-3" />
             <span>{scene.duration}s</span>
           </div>
-          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              disabled={sceneNumber === 1}
-              onClick={(e) => {
-                e.preventDefault();
-                onNavigateToScene(sceneNumber - 1);
-              }}
-              title="Previous scene"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              disabled={sceneNumber === totalScenes}
-              onClick={(e) => {
-                e.preventDefault();
-                onNavigateToScene(sceneNumber + 1);
-              }}
-              title="Next scene"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
       </AccordionTrigger>
       <AccordionContent className="p-4 pt-0">
+        <div className="flex justify-end gap-2 mb-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            disabled={sceneNumber === 1}
+            onClick={() => onNavigateToScene(sceneNumber - 1)}
+            title="Previous scene"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            disabled={sceneNumber === totalScenes}
+            onClick={() => onNavigateToScene(sceneNumber + 1)}
+            title="Next scene"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
         {validationErrors.length > 0 && (
           <Alert variant="destructive" className="mb-4">
             <AlertTriangle className="h-4 w-4" />
@@ -469,16 +425,6 @@ export default function SceneCard({ scene, sceneNumber, onUpdate, userId, userCo
                           <Image className="h-4 w-4" /> Image
                         </Label>
                       </RadioGroup>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="whitespace-nowrap"
-                        onClick={suggestVisualKeywords}
-                        disabled={isSuggestingVisual}
-                      >
-                        {isSuggestingVisual ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wand2 className="h-4 w-4 mr-2" />}
-                        AI suggest
-                      </Button>
                     </div>
                     <Button onClick={handleVisualSearch} disabled={isLoadingVisual} className="w-full lg:w-auto whitespace-nowrap">
                       {isLoadingVisual ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}

@@ -1,6 +1,6 @@
 'use client';
 
-import { FileJson, ArrowLeft, Sparkles, Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { FileJson, ArrowLeft, Sparkles, Loader2, AlertTriangle, ExternalLink, Trash, Eye } from 'lucide-react';
 import type { VideoProject, Scene } from '@/lib/types';
 import type { UserConfig } from '@/lib/actions';
 import type { MediaResult } from '@/lib/actions';
@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card as ResultCard, CardContent as ResultCardContent } from '@/components/ui/card';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface EditorStepProps {
   project: VideoProject;
@@ -34,11 +35,7 @@ interface EditorStepProps {
 
 export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta, onExport, onDeleteProject, isDeletingProject, onBackToProjects, userId, userConfig }: EditorStepProps) {
   const { toast } = useToast();
-  const seedGlobalKeyword =
-    project.globalBgAudio?.title ||
-    project.globalAudioKeywords ||
-    project.prompt;
-  const [globalAudioQuery, setGlobalAudioQuery] = useState<string>(seedGlobalKeyword || '');
+  const [globalAudioQuery, setGlobalAudioQuery] = useState<string>(project.globalAudioKeywords || '');
   const [globalAudioResults, setGlobalAudioResults] = useState<MediaResult[]>([]);
   const [isGlobalAudioLoading, setIsGlobalAudioLoading] = useState(false);
   const [globalAudioError, setGlobalAudioError] = useState<string | null>(null);
@@ -70,6 +67,7 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
       setActiveSceneValue(`item-${targetScene.id}`);
     }
   };
+
 
   const allIssues = sceneIssues.flatMap(s => s.messages.length ? [`${s.label}: ${s.messages.join(', ')}`] : []);
 
@@ -288,32 +286,34 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
                     {showGlobalAudioResults && (
                       <div className="grid gap-3 md:grid-cols-2">
                         {globalAudioResults.map(result => (
-                      <ResultCard key={`global-audio-${result.id}`}>
-                        <ResultCardContent className="p-3 space-y-2">
-                          <div className="text-sm font-medium truncate">{result.title}</div>
-                          {result.duration && (
-                            <div className="text-xs text-muted-foreground">Duration: {Math.round(result.duration)}s</div>
-                          )}
-                          <audio controls className="w-full">
-                            <source src={result.url} type="audio/mpeg" />
-                            {result.previewUrl && <source src={result.previewUrl} type="audio/ogg" />}
-                          </audio>
-                          {result.tags && (
-                            <div className="text-xs text-muted-foreground truncate">Tags: {result.tags.join(', ')}</div>
-                          )}
-                          <div className="flex flex-wrap gap-2">
-                            <Button variant="secondary" size="sm" onClick={() => handleSelectGlobalAudio(result)}>
-                              Use as global track
-                            </Button>
-                            <Button variant="ghost" size="icon" asChild>
-                              <a href={result.url} target="_blank" rel="noreferrer">
-                                <ExternalLink className="h-4 w-4" />
-                              </a>
-                            </Button>
-                          </div>
-                        </ResultCardContent>
-                      </ResultCard>
-                    ))}
+                          <ResultCard key={`global-audio-${result.id}`}>
+                            <ResultCardContent className="p-3 space-y-2">
+                              <div className="text-sm font-medium truncate">{result.title}</div>
+                              {result.tags && result.tags.length > 0 ? (
+                                <div className="text-xs text-muted-foreground truncate">Tags: {result.tags.join(', ')}</div>
+                              ) : (
+                                <div className="text-xs text-muted-foreground">No tags available</div>
+                              )}
+                              {result.duration && (
+                                <div className="text-xs text-muted-foreground">Duration: {Math.round(result.duration)}s</div>
+                              )}
+                              <audio controls className="w-full">
+                                <source src={result.url} type="audio/mpeg" />
+                                {result.previewUrl && <source src={result.previewUrl} type="audio/ogg" />}
+                              </audio>
+                              <div className="flex flex-wrap gap-2">
+                                <Button variant="secondary" size="sm" onClick={() => handleSelectGlobalAudio(result)}>
+                                  Use as global track
+                                </Button>
+                                <Button variant="ghost" size="icon" asChild>
+                                  <a href={result.url} target="_blank" rel="noreferrer">
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                </Button>
+                              </div>
+                            </ResultCardContent>
+                          </ResultCard>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -422,33 +422,46 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
           </CardContent>
         </Card>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Button
-            variant="destructive"
-            onClick={onDeleteProject}
-            disabled={!onDeleteProject || isDeletingProject}
-          >
-            Delete project
-          </Button>
-          <Button size="lg" onClick={handleExportClick} disabled={allIssues.length > 0}>
-            <FileJson className="mr-2 h-5 w-5" />
-            Finalize & Export JSON
-          </Button>
-        </div>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-headline">Payload Preview</CardTitle>
-          <CardDescription>JSON that will be sent to the backend.</CardDescription>
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="text-lg font-headline">Actions</CardTitle>
+            <CardDescription>Export or manage your project. Open payload preview if needed.</CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Eye className="mr-2 h-5 w-5" />
+                  Payload Preview
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle>Payload Preview</DialogTitle>
+                  <DialogDescription>JSON that will be sent to the backend.</DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="max-h-[60vh] rounded-md border bg-muted/40">
+                  <pre className="whitespace-pre text-xs p-3 font-mono min-w-max">{JSON.stringify(project, null, 2)}</pre>
+                </ScrollArea>
+              </DialogContent>
+            </Dialog>
+            <Button
+              variant="destructive"
+              onClick={onDeleteProject}
+              disabled={!onDeleteProject || isDeletingProject}
+            >
+              <Trash className="mr-2 h-5 w-5" />
+              Delete Project
+            </Button>
+            <Button onClick={handleExportClick} disabled={allIssues.length > 0}>
+              <FileJson className="mr-2 h-5 w-5" />
+              Export Project
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
-          <ScrollArea className="max-h-[480px] rounded-md border bg-muted/40 overflow-auto">
-            <pre className="whitespace-pre text-xs p-3 font-mono min-w-full overflow-auto">
-{JSON.stringify(project, null, 2)}
-            </pre>
-          </ScrollArea>
-        </CardContent>
       </Card>
     </div>
   );

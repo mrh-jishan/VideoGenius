@@ -24,6 +24,8 @@ interface ExportStepProps {
     awsAccessKeyId?: string;
     awsSecretAccessKey?: string;
     awsRegion?: string;
+    renderBackendUrl?: string;
+    renderBackendApiKey?: string;
   };
 }
 
@@ -34,6 +36,9 @@ export default function ExportStep({ project, onStartOver, userConfig }: ExportS
   const [engine, setEngine] = useState<string>(userConfig?.pollyEngine || 'generative');
   const [model, setModel] = useState<string>(userConfig?.geminiTextModel || 'gemini-2.5-flash');
   const [notes, setNotes] = useState<string>('');
+  const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [sendSuccess, setSendSuccess] = useState<string | null>(null);
 
   const exportPayload = useMemo(() => {
     return {
@@ -54,6 +59,36 @@ export default function ExportStep({ project, onStartOver, userConfig }: ExportS
     navigator.clipboard.writeText(jsonOutput);
     setHasCopied(true);
     setTimeout(() => setHasCopied(false), 2000);
+  };
+
+  const handleSendToBackend = async () => {
+    if (!userConfig?.renderBackendUrl) {
+      setSendError('No backend URL set in Settings.');
+      return;
+    }
+    setIsSending(true);
+    setSendError(null);
+    setSendSuccess(null);
+    try {
+      const res = await fetch(userConfig.renderBackendUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userConfig.renderBackendApiKey ? { Authorization: `Bearer ${userConfig.renderBackendApiKey}` } : {}),
+        },
+        body: JSON.stringify(exportPayload),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Request failed (${res.status})`);
+      }
+      const data = await res.json().catch(() => null);
+      setSendSuccess(data ? 'Sent successfully.' : 'Sent successfully (no JSON response).');
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : 'Failed to send to backend.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -157,6 +192,37 @@ export default function ExportStep({ project, onStartOver, userConfig }: ExportS
               <AlertTitle>Missing AWS credentials</AlertTitle>
               <AlertDescription>Add AWS keys and region in Settings to use Amazon Polly.</AlertDescription>
             </Alert>
+          )}
+
+          <div className="flex items-center gap-3">
+            <Button onClick={handleCopy} variant="secondary">
+              {hasCopied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+              {hasCopied ? 'Copied' : 'Copy JSON'}
+            </Button>
+            {userConfig?.renderBackendUrl && (
+              <Button onClick={handleSendToBackend} disabled={isSending}>
+                {isSending ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Send to Backend
+              </Button>
+            )}
+          </div>
+
+          {(sendError || sendSuccess) && (
+            <div>
+              {sendError && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Send failed</AlertTitle>
+                  <AlertDescription>{sendError}</AlertDescription>
+                </Alert>
+              )}
+              {sendSuccess && (
+                <Alert>
+                  <AlertTitle>Success</AlertTitle>
+                  <AlertDescription>{sendSuccess}</AlertDescription>
+                </Alert>
+              )}
+            </div>
           )}
 
           <div className="relative">

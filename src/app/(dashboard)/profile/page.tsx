@@ -31,6 +31,8 @@ const profileFormSchema = z.object({
   awsSecretAccessKey: z.string().optional(),
   awsRegion: z.string().optional(),
   outputDirectory: z.string().optional(),
+  renderBackendUrl: z.string().url('Enter a valid URL').optional(),
+  renderBackendApiKey: z.string().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
@@ -73,6 +75,8 @@ export default function ProfilePage() {
       awsSecretAccessKey: '',
       awsRegion: '',
       outputDirectory: ''
+      ,renderBackendUrl: '',
+      renderBackendApiKey: ''
     },
   });
   
@@ -110,6 +114,8 @@ export default function ProfilePage() {
         awsSecretAccessKey: userProfile.awsSecretAccessKey || '',
         awsRegion: userProfile.awsRegion || '',
         outputDirectory: userProfile.outputDirectory || '',
+        renderBackendUrl: userProfile.renderBackendUrl || '',
+        renderBackendApiKey: userProfile.renderBackendApiKey || '',
       });
     }
   }, [userProfile, form]);
@@ -403,6 +409,36 @@ export default function ProfilePage() {
                       </FormItem>
                     )}
                   />
+                  <div className="mt-6 space-y-6 rounded-md border p-4">
+                    <FormField
+                      control={form.control}
+                      name="renderBackendUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Rendering Backend URL</FormLabel>
+                          <FormDescription>Optional: If set, Export can send the JSON payload to this endpoint.</FormDescription>
+                          <FormControl>
+                            <Input placeholder="https://api.example.com/render" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="renderBackendApiKey"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Rendering Backend API Key</FormLabel>
+                          <FormDescription>Optional: Sent as `Authorization: Bearer <key>` header.</FormDescription>
+                          <FormControl>
+                            <Input type="password" placeholder="Optional API key" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </CardContent>
               </Card>
 

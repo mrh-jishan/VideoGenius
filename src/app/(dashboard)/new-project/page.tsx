@@ -65,43 +65,15 @@ export default function NewProjectPage() {
           id: uuidv4(),
         }));
         
-        // Extract simple global audio keywords from prompt for the entire video
-        // Use first 2-3 words from prompt as simple search terms
-        const globalAudioKeywords = prompt.split(/\s+/).filter(w => w.length > 3).slice(0, 3).join(' ');
-        
-        let globalBgAudio: MediaResult | undefined;
-        if (userConfig?.freesoundKey) {
-          try {
-            const seed = globalAudioKeywords || 'music';
-            const safeQuery = (seed || '')
-              .split(/[, ]+/)
-              .filter(Boolean)
-              .slice(0, 8)
-              .join(' ')
-              .slice(0, 100);
-            const endpoint = `https://freesound.org/apiv2/search/text/?query=${encodeURIComponent(
-              safeQuery
-            )}&fields=id,name,previews,duration,tags&token=${userConfig.freesoundKey}&page_size=1`;
-            const res = await fetch(endpoint);
-            if (res.ok) {
-              const data = await res.json();
-              const hit = data.results?.[0];
-              if (hit) {
-                globalBgAudio = {
-                  id: String(hit.id),
-                  type: 'audio',
-                  title: hit.name || 'Freesound Audio',
-                  url: hit.previews?.['preview-hq-mp3'] || hit.previews?.['preview-lq-mp3'],
-                  previewUrl: hit.previews?.['preview-hq-ogg'] || hit.previews?.['preview-lq-ogg'],
-                  duration: hit.duration,
-                  tags: hit.tags || [],
-                };
-              }
-            }
-          } catch (err) {
-            console.error('Failed to prefetch global audio', err);
-          }
-        }
+        // Derive overall background audio keywords from the initially generated scenes
+        const mergedAudioTerms = scenesWithIds
+          .map(s => s.audioKeywords || '')
+          .join(' ')
+          .split(/[, ]+/)
+          .map(k => k.trim().toLowerCase())
+          .filter(k => k.length > 2);
+        const uniqueTerms = Array.from(new Set(mergedAudioTerms));
+        const globalAudioKeywords = uniqueTerms.slice(0, 5).join(', ');
         
         const newProject: VideoProject = {
           id: uuidv4(),
@@ -113,7 +85,6 @@ export default function NewProjectPage() {
           targetDurationSeconds: duration,
           desiredSceneCount: sceneCount,
           globalAudioKeywords,
-          ...(globalBgAudio ? { globalBgAudio } : {}),
           creationDate: new Date().toISOString(),
           lastModified: new Date().toISOString(),
         };

@@ -36,8 +36,8 @@ const formSchema = z.object({
     .min(20, {
       message: 'Prompt must be at least 20 characters long.',
     })
-    .max(500, {
-      message: 'Prompt cannot be more than 500 characters long.',
+    .refine((val) => val.trim().split(/\s+/).filter(Boolean).length <= 500, {
+      message: 'Prompt cannot be more than 500 words.',
     }),
   aspectRatio: z.enum(['horizontal', 'vertical']),
   duration: z.coerce.number().min(5, 'Duration must be at least 5 seconds.').max(300, 'Duration cannot exceed 300 seconds (5 minutes).'),
@@ -90,7 +90,7 @@ export default function PromptStep({ onPromptSubmit, isLoading }: PromptStepProp
                           />
                         </FormControl>
                         <FormDescription>
-                          Describe the video you want to create in detail.
+                          Describe the video you want to create in detail. Max 500 words.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
