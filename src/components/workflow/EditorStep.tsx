@@ -187,9 +187,9 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
       {/* ── Scene Editor with sticky results panel ─────────────────── */}
       <div>
         <h2 className="text-2xl font-bold mb-3 font-headline">Scene Editor</h2>
-        <div className="flex gap-6 items-start">
+        <div className="flex gap-6 items-start overflow-x-hidden">
           {/* Left: accordion */}
-          <div className="min-w-0 basis-[42%]">
+          <div className="min-w-0 flex-[0_1_40%]">
             <Accordion type="single" collapsible className="w-full space-y-4" value={activeSceneValue} onValueChange={handleAccordionValueChange}>
               {project.scenes.map((scene, index) => {
                 const validation = sceneIssues.find(s => s.id === scene.id);
@@ -224,8 +224,8 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
 
           {/* Right: sticky media + audio panels */}
           {activePanelScene && (
-            <div className="w-[52rem] shrink-0 sticky top-4 self-start">
-              <div className="grid grid-cols-[1.7fr_1fr] gap-4">
+            <div className="min-w-0 flex-[1_1_0%] sticky top-4 self-start">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4">
               <Card className="overflow-hidden shadow-md">
                 <CardHeader className="py-3 px-4 bg-muted/30 flex flex-row items-center justify-between space-y-0">
                   <div className="flex items-center gap-2 min-w-0">
@@ -433,9 +433,9 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
             <CardTitle className="text-lg font-headline">Global Background Audio</CardTitle>
             <CardDescription>Optional track that plays across the full video. Scene-specific background audio still applies per scene.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className={globalAudio.results.length > 0 ? 'flex flex-row gap-4 items-start' : 'space-y-4'}>
-              <div className={`space-y-4${globalAudio.results.length > 0 ? ' w-[44%] shrink-0 min-w-0' : ''}`}>
+          <CardContent className="overflow-x-hidden">
+            <div className={globalAudio.results.length > 0 ? 'grid min-w-0 grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-4 items-start' : 'space-y-4'}>
+              <div className="space-y-4 min-w-0">
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Search global background audio</Label>
                   <div className="flex flex-wrap gap-2">
@@ -458,50 +458,27 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Selected global track</Label>
-                  {project.globalBgAudio ? (
-                    <div className="rounded-md border p-3 space-y-2">
-                      <div className="text-sm font-semibold">{project.globalBgAudio.title}</div>
-                      <audio controls className="w-full">
-                        <source src={project.globalBgAudio.url} type="audio/mpeg" />
-                        {project.globalBgAudio.previewUrl && <source src={project.globalBgAudio.previewUrl} type="audio/ogg" />}
-                      </audio>
-                      {project.globalBgAudio.tags && (
-                        <div className="text-xs text-muted-foreground truncate">Tags: {project.globalBgAudio.tags.join(', ')}</div>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No global track selected.</p>
-                  )}
+                  <SelectedAudioSummary media={project.globalBgAudio} emptyText="No global track selected." />
                 </div>
               </div>
 
               {globalAudio.results.length > 0 && (
-                <div className="flex flex-col gap-2 flex-1 min-w-0 border-l pl-4">
+                <div className="flex min-w-0 flex-col gap-2 border-l pl-4 overflow-x-hidden">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Results ({globalAudio.results.length})</span>
-                    <Button variant="ghost" size="sm" onClick={globalAudio.toggleResults}>{globalAudio.showResults ? 'Hide' : 'Show'}</Button>
                   </div>
-                  {globalAudio.showResults && (
-                    <div className="overflow-y-auto max-h-96 space-y-3 pr-1">
-                      {globalAudio.results.map(result => (
-                        <div key={`global-${result.id}`} className="rounded-md border p-3 space-y-2">
-                          <div className="text-sm font-medium truncate">{result.title}</div>
-                          {result.tags && result.tags.length > 0 && <div className="text-xs text-muted-foreground truncate">Tags: {result.tags.join(', ')}</div>}
-                          {result.duration && <div className="text-xs text-muted-foreground">Duration: {Math.round(result.duration)}s</div>}
-                          <audio controls className="w-full">
-                            <source src={result.url} type="audio/mpeg" />
-                            {result.previewUrl && <source src={result.previewUrl} type="audio/ogg" />}
-                          </audio>
-                          <div className="flex gap-2">
-                            <Button variant="secondary" size="sm" onClick={() => handleSelectGlobalAudio(result)}>Use as global track</Button>
-                            <Button variant="ghost" size="icon" asChild>
-                              <a href={result.url} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="max-h-96 space-y-3 overflow-x-hidden overflow-y-auto pr-1">
+                    {globalAudio.results.map(result => (
+                      <SelectableAudioCard
+                        key={`global-${result.id}`}
+                        result={result}
+                        selected={result.id === project.globalBgAudio?.id}
+                        selectedLabel="Selected"
+                        idleLabel="Select"
+                        onSelect={() => handleSelectGlobalAudio(result)}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -513,9 +490,9 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
             <CardTitle className="text-lg font-headline">Transition Sound Effect</CardTitle>
             <CardDescription>Optional sound effect that plays during scene transitions (e.g., whoosh, swipe).</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className={transitionSound.results.length > 0 ? 'flex flex-row gap-4 items-start' : 'space-y-4'}>
-              <div className={`space-y-4${transitionSound.results.length > 0 ? ' w-[44%] shrink-0 min-w-0' : ''}`}>
+          <CardContent className="overflow-x-hidden">
+            <div className={transitionSound.results.length > 0 ? 'grid min-w-0 grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-4 items-start' : 'space-y-4'}>
+              <div className="space-y-4 min-w-0">
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Search transition sounds</Label>
                   <div className="flex flex-wrap gap-2">
@@ -534,50 +511,27 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Selected transition sound</Label>
-                  {project.transitionSound ? (
-                    <div className="rounded-md border p-3 space-y-2">
-                      <div className="text-sm font-semibold">{project.transitionSound.title}</div>
-                      <audio controls className="w-full">
-                        <source src={project.transitionSound.url} type="audio/mpeg" />
-                        {project.transitionSound.previewUrl && <source src={project.transitionSound.previewUrl} type="audio/ogg" />}
-                      </audio>
-                      {project.transitionSound.tags && (
-                        <div className="text-xs text-muted-foreground truncate">Tags: {project.transitionSound.tags.join(', ')}</div>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No transition sound selected.</p>
-                  )}
+                  <SelectedAudioSummary media={project.transitionSound} emptyText="No transition sound selected." />
                 </div>
               </div>
 
               {transitionSound.results.length > 0 && (
-                <div className="flex flex-col gap-2 flex-1 min-w-0 border-l pl-4">
+                <div className="flex min-w-0 flex-col gap-2 border-l pl-4 overflow-x-hidden">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Results ({transitionSound.results.length})</span>
-                    <Button variant="ghost" size="sm" onClick={transitionSound.toggleResults}>{transitionSound.showResults ? 'Hide' : 'Show'}</Button>
                   </div>
-                  {transitionSound.showResults && (
-                    <div className="overflow-y-auto max-h-96 space-y-3 pr-1">
-                      {transitionSound.results.map(result => (
-                        <div key={`ts-${result.id}`} className="rounded-md border p-3 space-y-2">
-                          <div className="text-sm font-medium truncate">{result.title}</div>
-                          {result.tags && result.tags.length > 0 && <div className="text-xs text-muted-foreground truncate">Tags: {result.tags.join(', ')}</div>}
-                          {result.duration && <div className="text-xs text-muted-foreground">Duration: {Math.round(result.duration)}s</div>}
-                          <audio controls className="w-full">
-                            <source src={result.url} type="audio/mpeg" />
-                            {result.previewUrl && <source src={result.previewUrl} type="audio/ogg" />}
-                          </audio>
-                          <div className="flex gap-2">
-                            <Button variant="secondary" size="sm" onClick={() => handleSelectTransitionSound(result)}>Use as transition sound</Button>
-                            <Button variant="ghost" size="icon" asChild>
-                              <a href={result.url} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="max-h-96 space-y-3 overflow-x-hidden overflow-y-auto pr-1">
+                    {transitionSound.results.map(result => (
+                      <SelectableAudioCard
+                        key={`ts-${result.id}`}
+                        result={result}
+                        selected={result.id === project.transitionSound?.id}
+                        selectedLabel="Selected"
+                        idleLabel="Select"
+                        onSelect={() => handleSelectTransitionSound(result)}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -657,6 +611,78 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
 }
 
 // ─── Local sub-components ────────────────────────────────────────────────────
+
+function SelectedAudioSummary({ media, emptyText }: { media?: MediaResult; emptyText: string }) {
+  if (!media) {
+    return <p className="text-sm text-muted-foreground">{emptyText}</p>;
+  }
+
+  return (
+    <div className="rounded-md border p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-sm font-semibold truncate">{media.title}</div>
+        <span className="rounded-full bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground">Selected</span>
+      </div>
+      <audio controls className="w-full">
+        <source src={media.url} type="audio/mpeg" />
+        {media.previewUrl && <source src={media.previewUrl} type="audio/ogg" />}
+      </audio>
+      {media.tags && media.tags.length > 0 && (
+        <div className="text-xs text-muted-foreground truncate">Tags: {media.tags.join(', ')}</div>
+      )}
+    </div>
+  );
+}
+
+function SelectableAudioCard({
+  result,
+  selected,
+  selectedLabel,
+  idleLabel,
+  onSelect,
+}: {
+  result: MediaResult;
+  selected: boolean;
+  selectedLabel: string;
+  idleLabel: string;
+  onSelect: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      className={`group min-w-0 overflow-hidden rounded-md border p-3 space-y-2 cursor-pointer transition-all ${selected ? 'ring-2 ring-primary border-primary shadow-md' : 'hover:border-primary/50 hover:shadow-sm'}`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium truncate">{result.title}</span>
+        <div className="flex items-center gap-2 shrink-0">
+          {result.duration && <span className="text-xs text-muted-foreground">{Math.round(result.duration)}s</span>}
+          <span className={`rounded-full px-2 py-1 text-[10px] font-medium ${selected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground group-hover:bg-background'}`}>
+            {selected ? selectedLabel : idleLabel}
+          </span>
+        </div>
+      </div>
+      <audio controls className="block w-full max-w-full" onClick={(e) => e.stopPropagation()}>
+        <source src={result.url} type="audio/mpeg" />
+        {result.previewUrl && <source src={result.previewUrl} type="audio/ogg" />}
+      </audio>
+      <div className="flex justify-end">
+        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" asChild>
+          <a href={result.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 function AudioSearchError({ message }: { message: string }) {
   return (
