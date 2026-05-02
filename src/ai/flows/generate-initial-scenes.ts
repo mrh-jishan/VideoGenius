@@ -40,27 +40,41 @@ const initialScenesPrompt = ai.definePrompt({
   name: 'initialScenesPrompt',
   input: {schema: GenerateInitialScenesInputSchema},
   output: {schema: GenerateInitialScenesOutputSchema},
-  prompt: `You are an AI video scene planner. Given the following prompt and parameters, generate a set of video scenes.
+  prompt: `You are an expert AI video scene planner. Generate a structured set of video scenes from the prompt below.
 
-  The final video should be approximately {{duration}} seconds long and have a {{aspectRatio}} aspect ratio.
-  Try to produce around {{sceneCount}} scenes (adjust if needed for pacing) and distribute the total duration across them.
+Video parameters:
+- Total duration: {{duration}} seconds, {{aspectRatio}} aspect ratio
+- Target scene count: ~{{sceneCount}} (adjust for natural pacing)
+- Pacing: intro and outro scenes slightly shorter; middle scenes carry more weight
 
-  Prompt: {{{prompt}}}
+Prompt: {{{prompt}}}
 
-  Each scene should include:
-  - A title for context
-  - A 2-3 sentence narration script (this will be used for text-to-speech)
-  - An estimated duration (in seconds) that contributes to the total video length of {{duration}} seconds.
-  - Visual keywords for searching images/videos on Pixabay (comma-separated, e.g., "sunset, beach, ocean waves, nature")
-  - Audio keywords for searching scene-specific background audio on Freesound (use SIMPLE, GENERIC terms that are common in sound libraries - max 3-4 words, e.g., "ambient music", "nature sounds", "piano", "drums beat", "wind", "rain")
-  - Transition type: choose from "fade", "slide", "zoom", or "wipe" - vary the transitions to keep the video dynamic
-  - Subtitle transition: choose from "fade", "slide", or "none" - vary to match the scene's mood
+For each scene, produce the following fields:
 
-  Important: Make sure visual keywords are descriptive and specific for the {{aspectRatio}} aspect ratio.
-  Important: Audio keywords must be SHORT and SIMPLE - use basic sound/music terms that any sound library would have (e.g., "piano", "guitar", "ambient", "drums", "nature", "rain", "wind"). Avoid complex or overly specific phrases.
-  
-  Return the scenes as a JSON array.
-  `,
+**title**: Concise, descriptive scene title.
+
+**narration**: 2–3 sentences of engaging, natural-sounding narration for text-to-speech. Use active voice and vary sentence length for rhythm. Intro scene should hook the viewer; middle scenes deliver depth; the final scene closes with impact or a call to action.
+
+**duration**: Duration in seconds. All scene durations must sum to approximately {{duration}} seconds total.
+
+**visualKeywords**: 4–6 comma-separated keywords optimized for Pixabay image/video search. Lead with the most specific visual subject and setting, then add mood or style qualifiers. Use concrete, visually-searchable nouns and descriptors — avoid abstract concepts. Example for a travel opener: "aerial city skyline, golden hour cityscape, urban architecture, cinematic, travel". Tailor terms to the {{aspectRatio}} aspect ratio (e.g., tall compositions for vertical, wide establishing shots for horizontal).
+
+**audioKeywords**: 2–3 mood/genre terms optimized for Freesound and music libraries. Match the emotional tone of the scene. Choose terms like: "cinematic ambient", "piano melody", "upbeat acoustic guitar", "tense orchestral", "soft electronic", "nature soundscape", "corporate upbeat", "inspirational strings", "calm lo-fi", "dramatic percussion". Keep it to 2–3 terms only — do not use scene-specific topics.
+
+**transitionType**: Choose based on scene energy and position in the video:
+- "fade" — calm, reflective, or opening/closing scenes
+- "slide" — sequential narrative flow or scene-to-scene progression
+- "zoom" — reveals, emphasis moments, or high-energy scenes
+- "wipe" — contrast, before/after comparisons, or dramatic scene shifts
+Vary transitions across the video for visual interest.
+
+**subtitleTransition**: Choose based on scene mood:
+- "fade" — neutral, documentary, or informational tone
+- "slide" — dynamic, active, or upbeat scenes
+- "none" — impact moments where subtitles should appear instantly
+
+Return the scenes as a JSON array. Ensure all scene durations sum to approximately {{duration}} seconds.
+`,
 });
 
 const generateInitialScenesFlow = ai.defineFlow(

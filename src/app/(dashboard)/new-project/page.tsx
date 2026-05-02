@@ -65,15 +65,25 @@ export default function NewProjectPage() {
           id: uuidv4(),
         }));
         
-        // Derive overall background audio keywords from the initially generated scenes
-        const mergedAudioTerms = scenesWithIds
-          .map(s => s.audioKeywords || '')
-          .join(' ')
-          .split(/[, ]+/)
-          .map(k => k.trim().toLowerCase())
-          .filter(k => k.length > 2);
-        const uniqueTerms = Array.from(new Set(mergedAudioTerms));
-        const globalAudioKeywords = uniqueTerms.slice(0, 5).join(', ');
+        // Derive global audio keywords by weighting terms that appear across multiple scenes
+        // (repeated terms represent the overall video mood rather than a single scene's tone)
+        const termCounts = new Map<string, number>();
+        for (const s of scenesWithIds) {
+          const sceneTerms = new Set(
+            (s.audioKeywords || '')
+              .split(/[, ]+/)
+              .map(k => k.trim().toLowerCase())
+              .filter(k => k.length > 2)
+          );
+          for (const term of sceneTerms) {
+            termCounts.set(term, (termCounts.get(term) ?? 0) + 1);
+          }
+        }
+        const globalAudioKeywords = Array.from(termCounts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 4)
+          .map(([term]) => term)
+          .join(', ');
         
         const newProject: VideoProject = {
           id: uuidv4(),

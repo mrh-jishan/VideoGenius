@@ -1,6 +1,7 @@
 'use client';
 
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useMemo } from 'react';
 import { collection, doc } from 'firebase/firestore';
 import {
   Sidebar,
@@ -30,6 +31,11 @@ export default function AppSidebar() {
     [user, firestore]
   );
   const { data: projects, isLoading: isLoadingProjects } = useCollection<VideoProject>(projectsQuery);
+
+  const sortedProjects = useMemo(
+    () => projects ? [...projects].sort((a, b) => b.creationDate.localeCompare(a.creationDate)) : [],
+    [projects]
+  );
 
   return (
     <Sidebar
@@ -65,8 +71,8 @@ export default function AppSidebar() {
             <SidebarMenu className="space-y-1">
               {isUserLoading || isLoadingProjects ? (
                 Array.from({ length: 3 }).map((_, i) => <SidebarMenuSkeleton key={i} showIcon />)
-              ) : projects && projects.length > 0 ? (
-                projects.map((p) => (
+              ) : sortedProjects.length > 0 ? (
+                sortedProjects.map((p) => (
                   <SidebarMenuItem key={p.id}>
                     <SidebarMenuButton
                       onClick={() => router.push(`/projects/${p.id}`)}
