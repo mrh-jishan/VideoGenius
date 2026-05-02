@@ -7,16 +7,14 @@ import {
 import Link from 'next/link';
 import type { VideoProject, Scene } from '@/lib/types';
 import type { UserConfig, MediaResult } from '@/lib/actions';
-import type { ImagePlaceholder } from '@/lib/placeholder-images';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Accordion } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import SceneCard from './SceneCard';
+import SceneCard, { type SceneCardHandle } from './SceneCard';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { useAudioSearch } from '@/hooks/use-audio-search';
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -26,8 +24,8 @@ import { Badge } from '@/components/ui/badge';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type ScenePanelState = {
-  visualMode: 'results' | 'assets';
-  visualResults: MediaResult[];
+  transitionResults: MediaResult[];
+  narrationResults: MediaResult[];
   audioResults: MediaResult[];
 };
 
@@ -67,6 +65,8 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
   );
   const [scenePanels, setScenePanels] = useState<Record<string, ScenePanelState>>({});
   const [previewMedia, setPreviewMedia] = useState<PreviewMedia>(null);
+  const sceneCardRefs = useRef<Record<string, SceneCardHandle | null>>({});
+  const initialSceneSearchTriggeredRef = useRef(false);
 
   const activeSceneId = activeSceneValue?.replace('item-', '');
   const activePanelScene = activeSceneId
@@ -77,32 +77,8 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
     : -1;
   const activeSceneLabel = activeSceneIndex >= 0 ? `Scene ${activeSceneIndex + 1}` : 'Scene';
   const activeScenePanel = activeSceneId
-    ? (scenePanels[activeSceneId] ?? { visualMode: 'assets', visualResults: [], audioResults: [] })
-    : { visualMode: 'assets', visualResults: [], audioResults: [] };
-
-  const transitionLibraryResults = useMemo(() => {
-    if (!activePanelScene) return PlaceHolderImages;
-    const terms = [
-      activePanelScene.title,
-      activePanelScene.visualKeywords,
-      activePanelScene.narration,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-      .split(/[\s,]+/)
-      .filter(Boolean);
-
-    if (!terms.length) return PlaceHolderImages;
-
-    return [...PlaceHolderImages].sort((a, b) => {
-      const score = (asset: ImagePlaceholder) => {
-        const haystack = `${asset.description} ${asset.imageHint}`.toLowerCase();
-        return terms.reduce((sum, term) => sum + (haystack.includes(term) ? 1 : 0), 0);
-      };
-      return score(b) - score(a);
-    });
-  }, [activePanelScene]);
+    ? (scenePanels[activeSceneId] ?? { transitionResults: [], narrationResults: [], audioResults: [] })
+    : { transitionResults: [], narrationResults: [], audioResults: [] };
 
   const sceneIssues = useMemo(() => {
     return project.scenes.map((scene, idx) => {
@@ -121,6 +97,12 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
     const target = project.scenes[sceneNumber - 1];
     if (target) setActiveSceneValue(`item-${target.id}`);
   };
+
+  const handleAccordionValueChange = useCallback((value: string) => {
+    setActiveSceneValue(value);
+    const sceneId = value.replace('item-', '');
+    sceneCardRefs.current[sceneId]?.runSearch();
+  }, []);
 
   // Panel selection handlers — always read from project.scenes so they never go stale
   const handlePanelSelectTransition = useCallback((media: MediaResult) => {
@@ -141,36 +123,12 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
     onUpdateScene({ ...scene, selectedAudio: media, bgAudio: media });
   }, [project.scenes, activeSceneId, onUpdateScene]);
 
-  const handlePanelSelectTransitionAsset = useCallback((asset: ImagePlaceholder) => {
-    const scene = project.scenes.find(s => s.id === activeSceneId);
-    if (!scene) return;
-    const media: MediaResult = {
-      id: asset.id,
-      type: 'image',
-      title: asset.description,
-      url: asset.imageUrl,
-      previewUrl: asset.imageUrl,
-    };
-    onUpdateScene({ ...scene, asset, selectedVisual: media, transitionVisual: media });
-  }, [project.scenes, activeSceneId, onUpdateScene]);
-
-  const setSceneVisualMode = useCallback((sceneId: string, visualMode: 'results' | 'assets') => {
+  const storeSceneResults = useCallback((sceneId: string, type: 'transition' | 'narration' | 'audio', results: MediaResult[]) => {
     setScenePanels(current => ({
       ...current,
       [sceneId]: {
-        visualMode,
-        visualResults: current[sceneId]?.visualResults ?? [],
-        audioResults: current[sceneId]?.audioResults ?? [],
-      },
-    }));
-  }, []);
-
-  const storeSceneResults = useCallback((sceneId: string, type: 'visual' | 'audio', results: MediaResult[]) => {
-    setScenePanels(current => ({
-      ...current,
-      [sceneId]: {
-        visualMode: type === 'visual' ? 'results' : (current[sceneId]?.visualMode ?? 'assets'),
-        visualResults: type === 'visual' ? results : (current[sceneId]?.visualResults ?? []),
+        transitionResults: type === 'transition' ? results : (current[sceneId]?.transitionResults ?? []),
+        narrationResults: type === 'narration' ? results : (current[sceneId]?.narrationResults ?? []),
         audioResults: type === 'audio' ? results : (current[sceneId]?.audioResults ?? []),
       },
     }));
@@ -231,13 +189,24 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
         <h2 className="text-2xl font-bold mb-3 font-headline">Scene Editor</h2>
         <div className="flex gap-6 items-start">
           {/* Left: accordion */}
-          <div className="flex-1 min-w-0">
-            <Accordion type="single" collapsible className="w-full space-y-4" value={activeSceneValue} onValueChange={setActiveSceneValue}>
+          <div className="min-w-0 basis-[42%]">
+            <Accordion type="single" collapsible className="w-full space-y-4" value={activeSceneValue} onValueChange={handleAccordionValueChange}>
               {project.scenes.map((scene, index) => {
                 const validation = sceneIssues.find(s => s.id === scene.id);
                 return (
                   <SceneCard
                     key={scene.id}
+                    ref={(instance) => {
+                      sceneCardRefs.current[scene.id] = instance;
+                      if (
+                        instance &&
+                        !initialSceneSearchTriggeredRef.current &&
+                        activeSceneValue === `item-${scene.id}`
+                      ) {
+                        initialSceneSearchTriggeredRef.current = true;
+                        instance.runSearch();
+                      }
+                    }}
                     scene={scene}
                     sceneNumber={index + 1}
                     onUpdate={onUpdateScene}
@@ -246,7 +215,6 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
                     validationErrors={validation?.messages || []}
                     totalScenes={project.scenes.length}
                     onNavigateToScene={handleNavigateToScene}
-                    onOpenTransitionLibrary={() => setSceneVisualMode(scene.id, 'assets')}
                     onPushResults={(type, results) => storeSceneResults(scene.id, type, results)}
                   />
                 );
@@ -256,7 +224,7 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
 
           {/* Right: sticky media + audio panels */}
           {activePanelScene && (
-            <div className="w-[44rem] shrink-0 sticky top-4 self-start">
+            <div className="w-[52rem] shrink-0 sticky top-4 self-start">
               <div className="grid grid-cols-[1.7fr_1fr] gap-4">
               <Card className="overflow-hidden shadow-md">
                 <CardHeader className="py-3 px-4 bg-muted/30 flex flex-row items-center justify-between space-y-0">
@@ -267,125 +235,126 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
                       <p className="text-sm font-semibold truncate">Media</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      variant={activeScenePanel.visualMode === 'results' ? 'secondary' : 'ghost'}
-                      size="sm"
-                      className="h-7 px-2 text-[11px]"
-                      onClick={() => activeSceneId && setSceneVisualMode(activeSceneId, 'results')}
-                    >
-                      Results
-                    </Button>
-                    <Button
-                      variant={activeScenePanel.visualMode === 'assets' ? 'secondary' : 'ghost'}
-                      size="sm"
-                      className="h-7 px-2 text-[11px]"
-                      onClick={() => activeSceneId && setSceneVisualMode(activeSceneId, 'assets')}
-                    >
-                      Assets
-                    </Button>
-                    <Badge variant="secondary" className="text-xs">
-                      {activeScenePanel.visualMode === 'assets'
-                        ? transitionLibraryResults.length
-                        : activeScenePanel.visualResults.length}
-                    </Badge>
-                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {activeScenePanel.transitionResults.length + activeScenePanel.narrationResults.length}
+                  </Badge>
                 </CardHeader>
-                <div className="overflow-y-auto max-h-[calc(100vh-220px)]">
-                  <div className="p-3 space-y-3">
-                    {activeScenePanel.visualMode === 'assets' && (
-                      <>
-                        <p className="text-xs text-muted-foreground">
-                          Ranked from the built-in transition library using this scene&apos;s title, narration, and visual keywords.
-                        </p>
-                        {transitionLibraryResults.map(asset => {
-                          const selected = activePanelScene.asset?.id === asset.id || activePanelScene.transitionVisual?.id === asset.id;
-                          return (
-                            <div key={`panel-t-${asset.id}`} className={`rounded-lg border p-2 ${selected ? 'ring-2 ring-primary' : ''}`}>
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  className="shrink-0"
-                                  onClick={() => openPreview({
+                <div className="p-3 grid grid-cols-2 gap-3 items-start">
+                  <div className="space-y-2 min-w-0 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Transition Image</div>
+                        <Badge variant="outline" className="text-[10px]">{activeScenePanel.transitionResults.length}</Badge>
+                      </div>
+                      {activeScenePanel.transitionResults.map(result => {
+                        const selected = result.id === activePanelScene.transitionVisual?.id;
+                        return (
+                          <div
+                            key={`panel-transition-${result.id}`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handlePanelSelectTransition(result)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handlePanelSelectTransition(result);
+                              }
+                            }}
+                            className={`group relative block w-full overflow-hidden rounded-lg border bg-muted text-left transition-all cursor-pointer ${selected ? 'ring-2 ring-primary border-primary shadow-md' : 'hover:border-primary/50 hover:shadow-sm'}`}
+                          >
+                            <div className="relative aspect-video w-full">
+                              <img src={result.previewUrl || result.url} alt={result.title} className="h-full w-full object-cover" />
+                              <div className={`absolute inset-0 transition-colors ${selected ? 'bg-primary/20' : 'bg-black/0 group-hover:bg-black/10'}`} />
+                              <button
+                                type="button"
+                                className="absolute right-2 top-2 rounded-full bg-black/55 p-1.5 text-white opacity-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openPreview({
                                     type: 'image',
-                                    title: asset.description,
-                                    url: asset.imageUrl,
-                                    previewUrl: asset.imageUrl,
-                                  })}
-                                >
-                                  <img src={asset.imageUrl} alt={asset.description} className="h-16 w-24 rounded object-cover" />
-                                </button>
-                                <div className="min-w-0 flex-1 space-y-2">
-                                  <div className="text-xs text-muted-foreground line-clamp-3">{asset.description}</div>
-                                  <Button
-                                    size="sm"
-                                    variant={selected ? 'default' : 'secondary'}
-                                    className="w-full text-xs h-7"
-                                    onClick={() => handlePanelSelectTransitionAsset(asset)}
-                                  >
-                                    {selected ? '✓ Selected' : 'Use transition'}
-                                  </Button>
-                                </div>
+                                    title: result.title,
+                                    url: result.url,
+                                    previewUrl: result.previewUrl,
+                                  });
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              <div className="absolute bottom-2 left-2">
+                                <span className={`rounded-full px-2 py-1 text-[10px] font-medium ${selected ? 'bg-primary text-primary-foreground' : 'bg-background/90 text-foreground'}`}>
+                                  {selected ? 'Selected for transition' : 'Select for transition'}
+                                </span>
                               </div>
                             </div>
-                          );
-                        })}
-                      </>
-                    )}
-
-                    {activeScenePanel.visualMode === 'results' && activeScenePanel.visualResults.map(result => (
-                      <div key={`panel-v-${result.id}`} className={`rounded-lg border p-2.5 transition-shadow${result.id === activePanelScene.transitionVisual?.id || result.id === activePanelScene.narrationVideo?.id ? ' ring-2 ring-primary' : ''}`}>
-                        <div className="flex gap-2">
-                          <div className="h-24 w-36 rounded overflow-hidden bg-muted shrink-0">
-                            {result.type === 'image' ? (
-                              <img src={result.previewUrl || result.url} alt={result.title} className="h-full w-full object-cover" />
-                            ) : (
-                              <video src={result.url} poster={result.previewUrl} className="h-full w-full object-cover" preload="metadata" />
-                            )}
                           </div>
-                          <div className="min-w-0 flex-1 space-y-2">
-                            <div className="text-sm text-muted-foreground line-clamp-3">{result.title}</div>
-                            <div className="flex gap-1">
-                                <Button
-                                  size="sm"
-                                  variant={result.id === activePanelScene.transitionVisual?.id ? 'default' : 'secondary'}
-                                  className="flex-1 text-xs h-8 px-2"
-                                  onClick={() => handlePanelSelectTransition(result)}
-                                >
-                                  {result.id === activePanelScene.transitionVisual?.id ? '✓ Trans' : 'Trans'}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={result.id === activePanelScene.narrationVideo?.id ? 'default' : 'outline'}
-                                  className="flex-1 text-xs h-8 px-2"
-                                  onClick={() => handlePanelSelectNarration(result)}
-                                >
-                                  {result.id === activePanelScene.narrationVideo?.id ? '✓ Narr' : 'Narr'}
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 shrink-0"
-                                  onClick={() => openPreview({
+                        );
+                      })}
+
+                      {activeScenePanel.transitionResults.length === 0 && (
+                        <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                          Run a search in the open scene to load transition image results here.
+                        </div>
+                      )}
+                  </div>
+
+                  <div className="space-y-2 min-w-0 max-h-[calc(100vh-220px)] overflow-y-auto pl-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Narration Visual</div>
+                        <Badge variant="outline" className="text-[10px]">{activeScenePanel.narrationResults.length}</Badge>
+                      </div>
+
+                      {activeScenePanel.narrationResults.map(result => {
+                        const selected = result.id === activePanelScene.narrationVideo?.id;
+                        return (
+                          <div
+                            key={`panel-narration-${result.id}`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handlePanelSelectNarration(result)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handlePanelSelectNarration(result);
+                              }
+                            }}
+                            className={`group relative block w-full overflow-hidden rounded-lg border bg-muted text-left transition-all cursor-pointer ${selected ? 'ring-2 ring-primary border-primary shadow-md' : 'hover:border-primary/50 hover:shadow-sm'}`}
+                          >
+                            <div className="relative aspect-video w-full">
+                              {result.type === 'image' ? (
+                                <img src={result.previewUrl || result.url} alt={result.title} className="h-full w-full object-cover" />
+                              ) : (
+                                <video src={result.url} poster={result.previewUrl} className="h-full w-full object-cover" preload="metadata" />
+                              )}
+                              <div className={`absolute inset-0 transition-colors ${selected ? 'bg-primary/20' : 'bg-black/0 group-hover:bg-black/10'}`} />
+                              <button
+                                type="button"
+                                className="absolute right-2 top-2 rounded-full bg-black/55 p-1.5 text-white opacity-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openPreview({
                                     type: result.type === 'video' ? 'video' : 'image',
                                     title: result.title,
                                     url: result.url,
                                     previewUrl: result.previewUrl,
-                                  })}
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                </Button>
+                                  });
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              <div className="absolute bottom-2 left-2">
+                                <span className={`rounded-full px-2 py-1 text-[10px] font-medium ${selected ? 'bg-primary text-primary-foreground' : 'bg-background/90 text-foreground'}`}>
+                                  {selected ? 'Selected for narration' : 'Select for narration'}
+                                </span>
                               </div>
                             </div>
-                        </div>
-                      </div>
-                    ))}
+                          </div>
+                        );
+                      })}
 
-                    {activeScenePanel.visualMode === 'results' && activeScenePanel.visualResults.length === 0 && (
-                      <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-                        Run an image/video search in the open scene to load media results here.
-                      </div>
-                    )}
+                      {activeScenePanel.narrationResults.length === 0 && (
+                        <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                          Run a search in the open scene to load narration image/video results here.
+                        </div>
+                      )}
                   </div>
                 </div>
               </Card>
@@ -404,27 +373,44 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
                   </Badge>
                 </CardHeader>
                 <div className="overflow-y-auto max-h-[calc(100vh-220px)]">
-                  <div className="p-3 space-y-3">
-                    {activeScenePanel.audioResults.map(result => (
-                      <div key={`panel-a-${result.id}`} className={`rounded-md border p-3 space-y-2${result.id === activePanelScene.bgAudio?.id ? ' ring-2 ring-primary' : ''}`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-medium truncate">{result.title}</span>
-                          {result.duration && <span className="text-xs text-muted-foreground shrink-0">{Math.round(result.duration)}s</span>}
+                    <div className="p-3 space-y-3">
+                    {activeScenePanel.audioResults.map(result => {
+                      const selected = result.id === activePanelScene.bgAudio?.id;
+                      return (
+                        <div
+                          key={`panel-a-${result.id}`}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handlePanelSelectAudio(result)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handlePanelSelectAudio(result);
+                            }
+                          }}
+                          className={`group rounded-md border p-3 space-y-2 cursor-pointer transition-all ${selected ? 'ring-2 ring-primary border-primary shadow-md' : 'hover:border-primary/50 hover:shadow-sm'}`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium truncate">{result.title}</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {result.duration && <span className="text-xs text-muted-foreground">{Math.round(result.duration)}s</span>}
+                              <span className={`rounded-full px-2 py-1 text-[10px] font-medium ${selected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground group-hover:bg-background'}`}>
+                                {selected ? 'Selected' : 'Select'}
+                              </span>
+                            </div>
+                          </div>
+                          <audio controls className="w-full" onClick={(e) => e.stopPropagation()}>
+                            <source src={result.url} type="audio/mpeg" />
+                            {result.previewUrl && <source src={result.previewUrl} type="audio/ogg" />}
+                          </audio>
+                          <div className="flex justify-end">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" asChild>
+                              <a href={result.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}><ExternalLink className="h-3.5 w-3.5" /></a>
+                            </Button>
+                          </div>
                         </div>
-                        <audio controls className="w-full">
-                          <source src={result.url} type="audio/mpeg" />
-                          {result.previewUrl && <source src={result.previewUrl} type="audio/ogg" />}
-                        </audio>
-                        <div className="flex gap-1.5">
-                          <Button variant={result.id === activePanelScene.bgAudio?.id ? 'default' : 'secondary'} size="sm" onClick={() => handlePanelSelectAudio(result)} className="flex-1 text-xs">
-                            {result.id === activePanelScene.bgAudio?.id ? '✓ Selected' : 'Use audio'}
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
-                            <a href={result.url} target="_blank" rel="noreferrer"><ExternalLink className="h-3.5 w-3.5" /></a>
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
 
                     {activeScenePanel.audioResults.length === 0 && (
                       <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
