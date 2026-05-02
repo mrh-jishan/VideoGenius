@@ -2,7 +2,7 @@
 
 import {
   FileJson, Sparkles, Loader2, AlertTriangle, ExternalLink, Trash, Eye,
-  Image as ImageIcon, Video, Music, Library,
+  Image as ImageIcon, Video, Music,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { VideoProject, Scene } from '@/lib/types';
@@ -16,7 +16,7 @@ import SceneCard from './SceneCard';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { useAudioSearch } from '@/hooks/use-audio-search';
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -25,12 +25,11 @@ import { Badge } from '@/components/ui/badge';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type ActiveResults = {
-  type: 'transition-assets' | 'visual' | 'audio';
-  results?: MediaResult[];
-  sceneId: string;
-  sceneLabel: string;
-} | null;
+type ScenePanelState = {
+  visualMode: 'results' | 'assets';
+  visualResults: MediaResult[];
+  audioResults: MediaResult[];
+};
 
 type PreviewMedia = {
   type: 'image' | 'video';
@@ -66,21 +65,20 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
   const [activeSceneValue, setActiveSceneValue] = useState<string | undefined>(
     project.scenes.length > 0 ? `item-${project.scenes[0].id}` : undefined
   );
-
-  const [activeResults, setActiveResults] = useState<ActiveResults>(
-    project.scenes.length > 0
-      ? {
-          type: 'transition-assets',
-          sceneId: project.scenes[0].id,
-          sceneLabel: 'Scene 1',
-        }
-      : null
-  );
+  const [scenePanels, setScenePanels] = useState<Record<string, ScenePanelState>>({});
   const [previewMedia, setPreviewMedia] = useState<PreviewMedia>(null);
 
-  const activePanelScene = activeResults
-    ? project.scenes.find(s => s.id === activeResults.sceneId)
+  const activeSceneId = activeSceneValue?.replace('item-', '');
+  const activePanelScene = activeSceneId
+    ? project.scenes.find(s => s.id === activeSceneId)
     : null;
+  const activeSceneIndex = activeSceneId
+    ? project.scenes.findIndex(s => s.id === activeSceneId)
+    : -1;
+  const activeSceneLabel = activeSceneIndex >= 0 ? `Scene ${activeSceneIndex + 1}` : 'Scene';
+  const activeScenePanel = activeSceneId
+    ? (scenePanels[activeSceneId] ?? { visualMode: 'assets', visualResults: [], audioResults: [] })
+    : { visualMode: 'assets', visualResults: [], audioResults: [] };
 
   const transitionLibraryResults = useMemo(() => {
     if (!activePanelScene) return PlaceHolderImages;
@@ -124,41 +122,27 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
     if (target) setActiveSceneValue(`item-${target.id}`);
   };
 
-  useEffect(() => {
-    if (!activeSceneValue) return;
-    const sceneId = activeSceneValue.replace('item-', '');
-    const sceneIndex = project.scenes.findIndex(scene => scene.id === sceneId);
-    if (sceneIndex === -1) return;
-
-    setActiveResults(current => ({
-      type: current?.type ?? 'transition-assets',
-      results: current?.type === 'transition-assets' ? undefined : current?.results,
-      sceneId,
-      sceneLabel: `Scene ${sceneIndex + 1}`,
-    }));
-  }, [activeSceneValue, project.scenes]);
-
   // Panel selection handlers — always read from project.scenes so they never go stale
   const handlePanelSelectTransition = useCallback((media: MediaResult) => {
-    const scene = project.scenes.find(s => s.id === activeResults?.sceneId);
+    const scene = project.scenes.find(s => s.id === activeSceneId);
     if (!scene) return;
     onUpdateScene({ ...scene, selectedVisual: media, transitionVisual: media, asset: undefined });
-  }, [project.scenes, activeResults?.sceneId, onUpdateScene]);
+  }, [project.scenes, activeSceneId, onUpdateScene]);
 
   const handlePanelSelectNarration = useCallback((media: MediaResult) => {
-    const scene = project.scenes.find(s => s.id === activeResults?.sceneId);
+    const scene = project.scenes.find(s => s.id === activeSceneId);
     if (!scene) return;
     onUpdateScene({ ...scene, narrationVideo: media });
-  }, [project.scenes, activeResults?.sceneId, onUpdateScene]);
+  }, [project.scenes, activeSceneId, onUpdateScene]);
 
   const handlePanelSelectAudio = useCallback((media: MediaResult) => {
-    const scene = project.scenes.find(s => s.id === activeResults?.sceneId);
+    const scene = project.scenes.find(s => s.id === activeSceneId);
     if (!scene) return;
     onUpdateScene({ ...scene, selectedAudio: media, bgAudio: media });
-  }, [project.scenes, activeResults?.sceneId, onUpdateScene]);
+  }, [project.scenes, activeSceneId, onUpdateScene]);
 
   const handlePanelSelectTransitionAsset = useCallback((asset: ImagePlaceholder) => {
-    const scene = project.scenes.find(s => s.id === activeResults?.sceneId);
+    const scene = project.scenes.find(s => s.id === activeSceneId);
     if (!scene) return;
     const media: MediaResult = {
       id: asset.id,
@@ -168,7 +152,29 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
       previewUrl: asset.imageUrl,
     };
     onUpdateScene({ ...scene, asset, selectedVisual: media, transitionVisual: media });
-  }, [project.scenes, activeResults?.sceneId, onUpdateScene]);
+  }, [project.scenes, activeSceneId, onUpdateScene]);
+
+  const setSceneVisualMode = useCallback((sceneId: string, visualMode: 'results' | 'assets') => {
+    setScenePanels(current => ({
+      ...current,
+      [sceneId]: {
+        visualMode,
+        visualResults: current[sceneId]?.visualResults ?? [],
+        audioResults: current[sceneId]?.audioResults ?? [],
+      },
+    }));
+  }, []);
+
+  const storeSceneResults = useCallback((sceneId: string, type: 'visual' | 'audio', results: MediaResult[]) => {
+    setScenePanels(current => ({
+      ...current,
+      [sceneId]: {
+        visualMode: type === 'visual' ? 'results' : (current[sceneId]?.visualMode ?? 'assets'),
+        visualResults: type === 'visual' ? results : (current[sceneId]?.visualResults ?? []),
+        audioResults: type === 'audio' ? results : (current[sceneId]?.audioResults ?? []),
+      },
+    }));
+  }, []);
 
   const handleSelectGlobalAudio = (audio: MediaResult) => {
     onUpdateProjectMeta({ globalBgAudio: audio });
@@ -200,15 +206,15 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8 p-4 sm:p-6 lg:p-8">
+    <div className="mx-auto w-full max-w-[110rem] space-y-4 px-0.5 py-1">
       <Card className="overflow-hidden">
-        <CardHeader className="bg-muted/30">
+        <CardHeader className="bg-muted/30 px-4 py-4 sm:px-5 sm:py-4">
           <CardTitle className="font-headline text-3xl">{project.name}</CardTitle>
           <CardDescription>
             Your prompt has been transformed into {project.scenes.length} scenes. Review and edit each scene below.
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-6">
+        <CardContent className="px-4 py-4 sm:px-5 sm:py-4">
           <p className="text-sm border-l-4 border-primary pl-4 py-2 bg-muted/50 rounded-r-md">
             <strong>Original Prompt:</strong> {project.prompt}
           </p>
@@ -222,7 +228,7 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
 
       {/* ── Scene Editor with sticky results panel ─────────────────── */}
       <div>
-        <h2 className="text-2xl font-bold mb-4 font-headline">Scene Editor</h2>
+        <h2 className="text-2xl font-bold mb-3 font-headline">Scene Editor</h2>
         <div className="flex gap-6 items-start">
           {/* Left: accordion */}
           <div className="flex-1 min-w-0">
@@ -240,51 +246,54 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
                     validationErrors={validation?.messages || []}
                     totalScenes={project.scenes.length}
                     onNavigateToScene={handleNavigateToScene}
-                    onOpenTransitionLibrary={() =>
-                      setActiveResults({ type: 'transition-assets', sceneId: scene.id, sceneLabel: `Scene ${index + 1}` })
-                    }
-                    onPushResults={(type, results) =>
-                      setActiveResults({ type, results, sceneId: scene.id, sceneLabel: `Scene ${index + 1}` })
-                    }
+                    onOpenTransitionLibrary={() => setSceneVisualMode(scene.id, 'assets')}
+                    onPushResults={(type, results) => storeSceneResults(scene.id, type, results)}
                   />
                 );
               })}
             </Accordion>
           </div>
 
-          {/* Right: sticky results panel */}
-          {activeResults && activePanelScene && (
-            <div className={`${activeResults.type === 'visual' ? 'w-96' : 'w-64'} shrink-0 sticky top-4 self-start`}>
+          {/* Right: sticky media + audio panels */}
+          {activePanelScene && (
+            <div className="w-[44rem] shrink-0 sticky top-4 self-start">
+              <div className="grid grid-cols-[1.7fr_1fr] gap-4">
               <Card className="overflow-hidden shadow-md">
                 <CardHeader className="py-3 px-4 bg-muted/30 flex flex-row items-center justify-between space-y-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    {activeResults.type === 'visual'
-                      ? <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      : activeResults.type === 'transition-assets'
-                        ? <Library className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      : <Music className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                    <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground">{activeResults.sceneLabel}</p>
-                      <p className="text-sm font-semibold truncate">
-                        {activeResults.type === 'transition-assets'
-                          ? 'Transition Library'
-                          : activeResults.type === 'visual'
-                            ? 'Visual Results'
-                            : 'Audio Results'}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{activeSceneLabel}</p>
+                      <p className="text-sm font-semibold truncate">Media</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant={activeScenePanel.visualMode === 'results' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      className="h-7 px-2 text-[11px]"
+                      onClick={() => activeSceneId && setSceneVisualMode(activeSceneId, 'results')}
+                    >
+                      Results
+                    </Button>
+                    <Button
+                      variant={activeScenePanel.visualMode === 'assets' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      className="h-7 px-2 text-[11px]"
+                      onClick={() => activeSceneId && setSceneVisualMode(activeSceneId, 'assets')}
+                    >
+                      Assets
+                    </Button>
                     <Badge variant="secondary" className="text-xs">
-                      {activeResults.type === 'transition-assets'
+                      {activeScenePanel.visualMode === 'assets'
                         ? transitionLibraryResults.length
-                        : activeResults.results?.length ?? 0}
+                        : activeScenePanel.visualResults.length}
                     </Badge>
                   </div>
                 </CardHeader>
-                <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
+                <div className="overflow-y-auto max-h-[calc(100vh-220px)]">
                   <div className="p-3 space-y-3">
-                    {activeResults.type === 'transition-assets' && activePanelScene && (
+                    {activeScenePanel.visualMode === 'assets' && (
                       <>
                         <p className="text-xs text-muted-foreground">
                           Ranked from the built-in transition library using this scene&apos;s title, narration, and visual keywords.
@@ -324,7 +333,7 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
                       </>
                     )}
 
-                    {activeResults.type === 'visual' && activeResults.results?.map(result => (
+                    {activeScenePanel.visualMode === 'results' && activeScenePanel.visualResults.map(result => (
                       <div key={`panel-v-${result.id}`} className={`rounded-lg border p-2.5 transition-shadow${result.id === activePanelScene.transitionVisual?.id || result.id === activePanelScene.narrationVideo?.id ? ' ring-2 ring-primary' : ''}`}>
                         <div className="flex gap-2">
                           <div className="h-24 w-36 rounded overflow-hidden bg-muted shrink-0">
@@ -358,7 +367,7 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
                                   size="icon"
                                   className="h-8 w-8 shrink-0"
                                   onClick={() => openPreview({
-                                    type: result.type,
+                                    type: result.type === 'video' ? 'video' : 'image',
                                     title: result.title,
                                     url: result.url,
                                     previewUrl: result.previewUrl,
@@ -372,7 +381,31 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
                       </div>
                     ))}
 
-                    {activeResults.type === 'audio' && activeResults.results?.map(result => (
+                    {activeScenePanel.visualMode === 'results' && activeScenePanel.visualResults.length === 0 && (
+                      <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                        Run an image/video search in the open scene to load media results here.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="overflow-hidden shadow-md">
+                <CardHeader className="py-3 px-4 bg-muted/30 flex flex-row items-center justify-between space-y-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Music className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">{activeSceneLabel}</p>
+                      <p className="text-sm font-semibold truncate">Audio</p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {activeScenePanel.audioResults.length}
+                  </Badge>
+                </CardHeader>
+                <div className="overflow-y-auto max-h-[calc(100vh-220px)]">
+                  <div className="p-3 space-y-3">
+                    {activeScenePanel.audioResults.map(result => (
                       <div key={`panel-a-${result.id}`} className={`rounded-md border p-3 space-y-2${result.id === activePanelScene.bgAudio?.id ? ' ring-2 ring-primary' : ''}`}>
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-medium truncate">{result.title}</span>
@@ -393,14 +426,15 @@ export default function EditorStep({ project, onUpdateScene, onUpdateProjectMeta
                       </div>
                     ))}
 
-                    {activeResults.type !== 'transition-assets' && (!activeResults.results || activeResults.results.length === 0) && (
+                    {activeScenePanel.audioResults.length === 0 && (
                       <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-                        Run a search in the open scene to load {activeResults.type === 'visual' ? 'image/video' : 'audio'} results here.
+                        Run an audio search in the open scene to load sound results here.
                       </div>
                     )}
                   </div>
                 </div>
               </Card>
+              </div>
             </div>
           )}
         </div>

@@ -14,7 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { MediaResult, UserConfig } from '@/lib/actions';
-import { useReducer, useMemo, useEffect } from 'react';
+import { useReducer, useMemo, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAudioSearch } from '@/hooks/use-audio-search';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -66,6 +66,8 @@ export default function SceneCard({
   validationErrors = [], totalScenes, onNavigateToScene, onOpenTransitionLibrary, onPushResults,
 }: SceneCardProps) {
   const { toast } = useToast();
+  const lastVisualSearchRef = useRef<{ query: string; type: 'video' | 'image' } | null>(null);
+  const lastAudioSearchRef = useRef<{ query: string } | null>(null);
 
   const [visual, dispatch] = useReducer(visualReducer, {
     query: scene.visualKeywords || scene.title,
@@ -136,6 +138,7 @@ export default function SceneCard({
         };
       });
       dispatch({ type: 'SEARCH_DONE' });
+      lastVisualSearchRef.current = { query: safeQuery, type: searchType };
       if (!results.length) {
         toast({ title: 'No visuals found', description: 'Try adjusting keywords.', variant: 'destructive' });
       } else {
@@ -152,6 +155,48 @@ export default function SceneCard({
       console.error(error);
       dispatch({ type: 'SEARCH_ERROR', error: error instanceof Error ? error.message : 'Failed to fetch visuals.' });
     }
+  };
+
+  const handleUnifiedSearch = async () => {
+    const nextVisualQuery = (visualSearchTerm || scene.title || '')
+      .split(/[, ]+/)
+      .filter(Boolean)
+      .slice(0, 10)
+      .join(' ')
+      .slice(0, 120);
+    const nextAudioQuery = (audioSearch.query || scene.audioKeywords || scene.title || scene.narration || '')
+      .split(/[, ]+/)
+      .filter(Boolean)
+      .slice(0, 10)
+      .join(' ')
+      .slice(0, 120);
+
+    const shouldSearchVisual =
+      !lastVisualSearchRef.current ||
+      lastVisualSearchRef.current.query !== nextVisualQuery ||
+      lastVisualSearchRef.current.type !== visual.type;
+
+    const shouldSearchAudio =
+      !lastAudioSearchRef.current ||
+      lastAudioSearchRef.current.query !== nextAudioQuery;
+
+    const tasks: Promise<unknown>[] = [];
+
+    if (shouldSearchVisual) {
+      tasks.push(handleVisualSearch());
+    }
+
+    if (shouldSearchAudio) {
+      lastAudioSearchRef.current = { query: nextAudioQuery };
+      tasks.push(audioSearch.search(nextAudioQuery));
+    }
+
+    if (!tasks.length) {
+      toast({ title: 'Searches already up to date', description: 'Change visual or audio keywords to refresh results.' });
+      return;
+    }
+
+    await Promise.all(tasks);
   };
 
   return (
@@ -173,7 +218,7 @@ export default function SceneCard({
       </AccordionTrigger>
 
       <AccordionContent className="p-4 pt-0">
-        <div className="space-y-6">
+        <div className="space-y-5">
           {/* Navigation + validation */}
           <div className="flex items-start justify-between gap-4">
             {validationErrors.length > 0 ? (
@@ -195,10 +240,10 @@ export default function SceneCard({
           </div>
 
           {/* ── Section 1: Content ──────────────────────────────────── */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <SectionLabel icon={<Type className="h-3.5 w-3.5" />}>Content</SectionLabel>
             <Card>
-              <CardContent className="p-4 space-y-4">
+              <CardContent className="p-4 space-y-3">
                 <div className="grid gap-3 md:grid-cols-3 md:items-end">
                   <div className="grid gap-2 md:col-span-2">
                     <Label htmlFor={`title-${scene.id}`}>Scene Title</Label>
@@ -227,10 +272,10 @@ export default function SceneCard({
           </div>
 
           {/* ── Section 2: Visuals ──────────────────────────────────── */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <SectionLabel icon={<ImageIcon className="h-3.5 w-3.5" />}>Visuals</SectionLabel>
             <Card>
-              <CardContent className="p-4 space-y-4">
+              <CardContent className="p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <VisualSlot
                     label="Transition"
@@ -254,36 +299,32 @@ export default function SceneCard({
                     emptyText="No narration selected"
                   />
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={onOpenTransitionLibrary}>
-                    <PanelRightOpen className="h-4 w-4 mr-2" />
-                    Browse transition library
+                <div className="flex items-center justify-between gap-2 border-t pt-3">
+                  <Button variant="outline" size="sm" onClick={onOpenTransitionLibrary}>
+                    <PanelRightOpen className="h-3.5 w-3.5 mr-1.5" />
+                    Assets
                   </Button>
-                  <p className="text-xs text-muted-foreground self-center">
-                    Search results and transition assets open in the side panel.
+                  <p className="text-[11px] text-muted-foreground text-right">
+                    Results open in the side panel.
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2 border-t pt-3">
+                <div className="grid gap-2 border-t pt-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                   <Input
                     value={visual.query}
                     onChange={(e) => { dispatch({ type: 'SET_QUERY', query: e.target.value }); handleFieldChange('visualKeywords', e.target.value); }}
                     placeholder="Search keywords…"
-                    className="flex-1 min-w-[160px]"
+                    className="min-w-[160px]"
                   />
-                  <RadioGroup value={visual.type} onValueChange={(v) => dispatch({ type: 'SET_TYPE', mediaType: v as 'video' | 'image' })} className="flex gap-2">
-                    <Label htmlFor={`vtype-img-${scene.id}`} className="flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm cursor-pointer">
+                  <RadioGroup value={visual.type} onValueChange={(v) => dispatch({ type: 'SET_TYPE', mediaType: v as 'video' | 'image' })} className="flex gap-1.5">
+                    <Label htmlFor={`vtype-img-${scene.id}`} className="flex items-center gap-1.5 rounded-md border px-2.5 py-2 text-xs cursor-pointer">
                       <RadioGroupItem id={`vtype-img-${scene.id}`} value="image" />
                       <Image className="h-3.5 w-3.5" /> Images
                     </Label>
-                    <Label htmlFor={`vtype-vid-${scene.id}`} className="flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm cursor-pointer">
+                    <Label htmlFor={`vtype-vid-${scene.id}`} className="flex items-center gap-1.5 rounded-md border px-2.5 py-2 text-xs cursor-pointer">
                       <RadioGroupItem id={`vtype-vid-${scene.id}`} value="video" />
                       <Video className="h-3.5 w-3.5" /> Videos
                     </Label>
                   </RadioGroup>
-                  <Button onClick={() => handleVisualSearch()} disabled={visual.isLoading}>
-                    {visual.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                    Search
-                  </Button>
                 </div>
                 {visual.error && <SearchError message={visual.error} />}
               </CardContent>
@@ -291,28 +332,28 @@ export default function SceneCard({
           </div>
 
           {/* ── Section 3: Audio ────────────────────────────────────── */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <SectionLabel icon={<Music className="h-3.5 w-3.5" />}>Audio</SectionLabel>
             <Card>
               <CardContent className="p-4 space-y-3">
-                <div className="flex flex-wrap gap-2">
+                <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                   <Input
                     value={audioSearch.query}
                     onChange={(e) => { audioSearch.setQuery(e.target.value); handleFieldChange('audioKeywords', e.target.value); }}
                     placeholder="e.g., piano, ambient, drums"
-                    className="flex-1 min-w-[160px]"
+                    className="min-w-[160px]"
                   />
-                  <Button onClick={() => audioSearch.search()} disabled={audioSearch.isLoading}>
-                    {audioSearch.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                    Search audio
+                  <Button size="sm" onClick={handleUnifiedSearch} disabled={visual.isLoading || audioSearch.isLoading}>
+                    {visual.isLoading || audioSearch.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Sparkles className="h-4 w-4 mr-1.5" />}
+                    Search scene
                   </Button>
                 </div>
                 {audioSearch.error && <SearchError message={audioSearch.error} />}
                 {scene.bgAudio && (
-                  <div className="rounded-md border p-3 space-y-2">
+                  <div className="rounded-md border p-2.5 space-y-2">
                     <div className="text-sm font-semibold flex items-center justify-between">
                       <span className="truncate">{scene.bgAudio.title}</span>
-                      <span className="text-xs text-primary font-normal shrink-0 ml-2">selected</span>
+                      <span className="text-[11px] text-primary font-normal shrink-0 ml-2">selected</span>
                     </div>
                     <audio controls className="w-full">
                       <source src={scene.bgAudio.url} type="audio/mpeg" />
